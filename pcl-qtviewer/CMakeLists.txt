@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 2.8.11)
 
 project(qtviewer)
 
-find_package (VTK REQUIRED)
+find_package (VTK 7.0 REQUIRED)
 find_package (PCL REQUIRED)
 
 include_directories (${PCL_INCLUDE_DIRS})
