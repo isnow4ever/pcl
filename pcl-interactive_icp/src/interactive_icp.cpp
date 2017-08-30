@@ -6,6 +6,8 @@
 #include <pcl/registration/icp.h>
 #include <pcl/visualization/pcl_visualizer.h>
 #include <pcl/console/time.h>   // TicToc
+#include <pcl/filters/filter.h>
+#include <pcl/filters/voxel_grid.h>
 
 typedef pcl::PointXYZ PointT;
 typedef pcl::PointCloud<PointT> PointCloudT;
@@ -69,6 +71,15 @@ main (int argc,
     return (-1);
   }
   std::cout << "\nLoaded file " << argv[1] << " (" << cloud_in->size () << " points) in " << time.toc () << " ms\n" << std::endl;
+
+  //Downsampling
+  pcl::console::print_highlight("Downsampling...\n");
+  pcl::VoxelGrid<pcl::PointXYZ> grid;
+  const float leaf = 0.005f;
+  grid.setLeafSize(leaf, leaf, leaf);
+  grid.setInputCloud(cloud_in);
+  grid.filter(*cloud_in);
+
 
   // Defining a rotation matrix and translation vector
   Eigen::Matrix4d transformation_matrix = Eigen::Matrix4d::Identity ();
