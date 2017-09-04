@@ -29,7 +29,7 @@ void ProjectMainWindow::initialVtkWidget()
 {
 	cloud.reset(new pcl::PointCloud<pcl::PointXYZ>);
 	viewer.reset(new pcl::visualization::PCLVisualizer("viewer", false));
-	viewer->addPointCloud(cloud, "cloud");
+		;
 
 	//m_QVTKWidget->SetRenderWindow(viewer->getRenderWindow());
 	//viewer->setupInteractor(m_QVTKWidget->GetInteractor(), m_QVTKWidget->GetRenderWindow());
