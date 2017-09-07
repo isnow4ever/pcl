@@ -1,4 +1,5 @@
 #include "ICPReg.h"
+#include <Eigen/src/Core/IO.h>
 
 typedef pcl::PointXYZ PointT;
 typedef pcl::PointCloud<PointT> PointCloudT;
@@ -46,8 +47,14 @@ ICPReg::proceed(QString filename_model, QString filename_data, int iterations)
 	pcl::console::TicToc time;
 	time.tic();
 	std::string file_name = filename_model.toStdString();
-	
+
+	emit infoRec("Loading model...");
+	emit progressBarUpdate(10);
+
 	pcl::io::loadPLYFile(file_name, *cloud_in);
+
+	emit infoRec("Loading model finished.");
+	emit progressBarUpdate(20);
 	
 						 //Downsampling
 	pcl::console::print_highlight("Downsampling...\n");
@@ -57,6 +64,8 @@ ICPReg::proceed(QString filename_model, QString filename_data, int iterations)
 	grid.setInputCloud(cloud_in);
 	grid.filter(*cloud_in);
 
+	emit infoRec("Downsampling finished.");
+	emit progressBarUpdate(30);
 
 	// Defining a rotation matrix and translation vector
 	Eigen::Matrix4d transformation_matrix = Eigen::Matrix4d::Identity();
@@ -78,6 +87,14 @@ ICPReg::proceed(QString filename_model, QString filename_data, int iterations)
 	// Executing the transformation
 	pcl::transformPointCloud(*cloud_in, *cloud_icp, transformation_matrix);
 	*cloud_tr = *cloud_icp;  // We backup cloud_icp into cloud_tr for later use
+
+	emit infoRec("Transform finished.");
+	emit progressBarUpdate(40);
+	QString matrix;
+	Eigen::IOFormat OctaveFmt(Eigen::StreamPrecision, 0, ", ", ";\n", "", "", "[", "]");
+	std::stringstream trans;
+	trans << transformation_matrix.format(OctaveFmt);
+	emit infoRec(QString::fromStdString(trans.str()));
 
 							 // The Iterative Closest Point algorithm
 	time.tic();
@@ -142,7 +159,7 @@ ICPReg::proceed(QString filename_model, QString filename_data, int iterations)
 
 	// Set camera position and orientation
 	viewer->setCameraPosition(-3.68332, 2.94092, 5.71266, 0.289847, 0.921947, -0.256907, 0);
-	viewer->setSize(1280, 1024);  // Visualiser window size
+	viewer->setSize(640, 512);  // Visualiser window size
 
 								  // Register keyboard callback :
 	viewer->registerKeyboardCallback(&keyboardEventOccurred, (void*)NULL);
@@ -160,6 +177,11 @@ ICPReg::proceed(QString filename_model, QString filename_data, int iterations)
 			icp.align(*cloud_icp);
 			std::cout << "Applied 1 ICP iteration in " << time.toc() << " ms" << std::endl;
 
+			std::stringstream info_ss;
+			info_ss << "Applied 1 ICP iteration in " << time.toc() << " ms";
+			emit infoRec(QString::fromStdString(info_ss.str()));
+			emit progressBarUpdate(50);
+
 			if (icp.hasConverged())
 			{
 				printf("\033[11A");  // Go up 11 lines in terminal output.
@@ -167,6 +189,11 @@ ICPReg::proceed(QString filename_model, QString filename_data, int iterations)
 				std::cout << "\nICP transformation " << ++iterations << " : cloud_icp -> cloud_in" << std::endl;
 				transformation_matrix *= icp.getFinalTransformation().cast<double>();  // WARNING /!\ This is not accurate! For "educational" purpose only!
 				print4x4Matrix(transformation_matrix);  // Print the transformation between original pose and current pose
+
+				info_ss.str("");
+				info_ss << "ICP has converged, score is " << icp.getFitnessScore();
+				emit infoRec(QString::fromStdString(info_ss.str()));
+				emit progressBarUpdate(100);
 
 				ss.str("");
 				ss << iterations;
@@ -181,12 +208,16 @@ ICPReg::proceed(QString filename_model, QString filename_data, int iterations)
 			}
 		}
 		next_iteration = false;
+
+		//emit progressBarUpdate(100);
 	}
+	qDebug("123");
 }
 
 void
 ICPReg::OnStarted()
 {
+	this->proceed(filename_model, filename_data, iterations);
 	emit finished();
 }
 

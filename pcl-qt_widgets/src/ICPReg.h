@@ -45,6 +45,8 @@ public:
 
 signals:
 	void finished();
+	void progressBarUpdate(int);
+	void infoRec(QString);
 
 public slots:
 	void OnStarted();

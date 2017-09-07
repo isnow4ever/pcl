@@ -50,6 +50,9 @@ private slots:
 	void onVisualizerOpenSlot();
 	void onModelFileOpenSlot();
 	void onDataFileOpenSlot();
+	void onProgressBarUpdateSlot(int);
+	void onInfoRecSlot(QString);
+	void onViewerOff();
 };
 
 #endif // MAINWINDOW_H
