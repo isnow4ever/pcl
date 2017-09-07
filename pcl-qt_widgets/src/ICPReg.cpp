@@ -112,6 +112,10 @@ ICPReg::proceed(QString filename_model, QString filename_data, int iterations)
 		std::cout << "\nICP transformation " << iterations << " : cloud_icp -> cloud_in" << std::endl;
 		transformation_matrix = icp.getFinalTransformation().cast<double>();
 		print4x4Matrix(transformation_matrix);
+
+		trans.str("");
+		trans << transformation_matrix.format(OctaveFmt);
+		emit infoRec(QString::fromStdString(trans.str()));
 	}
 	else
 	{
@@ -189,6 +193,10 @@ ICPReg::proceed(QString filename_model, QString filename_data, int iterations)
 				std::cout << "\nICP transformation " << ++iterations << " : cloud_icp -> cloud_in" << std::endl;
 				transformation_matrix *= icp.getFinalTransformation().cast<double>();  // WARNING /!\ This is not accurate! For "educational" purpose only!
 				print4x4Matrix(transformation_matrix);  // Print the transformation between original pose and current pose
+
+				trans.str("");
+				trans << transformation_matrix.format(OctaveFmt);
+				emit infoRec(QString::fromStdString(trans.str()));
 
 				info_ss.str("");
 				info_ss << "ICP has converged, score is " << icp.getFitnessScore();
