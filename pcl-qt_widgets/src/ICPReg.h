@@ -43,6 +43,11 @@ public:
 	void print4x4Matrix(const Eigen::Matrix4d & matrix);
 	void proceed(QString filename_model, QString filename_data, int iterations);
 
+	void loadPointCloud(QString filename, pcl::PointCloud<PointT> &cloud);
+	void downSampling(PointCloudT::Ptr cloud);
+	void outliersRemover(PointCloudT::Ptr cloud);
+	void infoCollect();
+
 signals:
 	void finished();
 	void progressBarUpdate(int);
