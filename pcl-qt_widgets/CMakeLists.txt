@@ -9,8 +9,16 @@ include_directories (${PCL_INCLUDE_DIRS})
 link_directories    (${PCL_LIBRARY_DIRS})
 add_definitions     (${PCL_DEFINITIONS})
 
-set  (project_SOURCES src/main.cpp src/mainwindow.cpp src/ICPReg.cpp src/visualization.cpp)
-set  (project_HEADERS src/res.h src/mainwindow.h src/ICPReg.h src/visualization.h)
+set  (project_SOURCES src/main.cpp
+					  src/mainwindow.cpp
+					  src/ICPReg.cpp
+					  src/visualization.cpp
+					  src/record.cpp)
+set  (project_HEADERS src/res.h
+	                  src/mainwindow.h
+					  src/ICPReg.h
+					  src/visualization.h
+					  src/record.h)
 set  (project_FORMS   src/mainwindow.ui)
 
 # Find includes in corresponding build directories

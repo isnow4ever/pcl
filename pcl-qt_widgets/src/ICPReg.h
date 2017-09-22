@@ -1,5 +1,6 @@
 #pragma once
 #include "res.h"
+#include "record.h"
 #include <QObject>
 
 #include <iostream>
@@ -23,6 +24,7 @@ public:
 	ICPReg(QString, QString, int);
 	~ICPReg();
 
+	Record *record;
 
 	QString filename_model;
 	QString filename_data;
@@ -47,8 +49,8 @@ public:
 
 signals:
 	void finished();
-	void progressBarUpdate(int);
-	void infoRec(QString);
+	//void progressBarUpdate(int);
+	//void infoRec(QString);
 
 public slots:
 	void OnStarted();

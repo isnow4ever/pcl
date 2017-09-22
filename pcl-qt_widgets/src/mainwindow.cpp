@@ -20,10 +20,13 @@ MainWindow::MainWindow(QWidget *parent) :
 	connect(ui->pushButton, SIGNAL(clicked()), this, SLOT(onModelFileOpenSlot()));
 	connect(ui->pushButton_2, SIGNAL(clicked()), this, SLOT(onDataFileOpenSlot()));
 	connect(ui->pushButton_3, SIGNAL(clicked()), this, SLOT(onVisualizerOpenSlot()));
-	connect(ui->pushButton_4, SIGNAL(clicked()), this, SLOT(onPreviewOpenSlot()));
+	connect(ui->pushButton_4, SIGNAL(clicked()), this, SLOT(onPreviewOpenSlot())); 
+	connect(ui->pushButton_5, SIGNAL(clicked()), this, SLOT(onCalculateKdtreeSlot()));
 
 	ui->progressBar->setRange(0, 100);
 	ui->progressBar->setValue(0);
+
+	ui->pushButton_5->setEnabled(false);
 }
 
 MainWindow::~MainWindow()
@@ -42,8 +45,8 @@ MainWindow::icp_proceed(QString filename_model, QString filename_data, int itera
 	connect(th, SIGNAL(started()), icpreg, SLOT(OnStarted()));//线程开始信号
 	connect(icpreg, SIGNAL(finished()), this, SLOT(onViewerOff()));
 	connect(icpreg, SIGNAL(finished()), th, SLOT(terminate()));//线程结束信号
-	connect(icpreg, SIGNAL(progressBarUpdate(int)), this, SLOT(onProgressBarUpdateSlot(int)));
-	connect(icpreg, SIGNAL(infoRec(QString)), this, SLOT(onInfoRecSlot(QString)));
+	connect(icpreg->record, SIGNAL(progressBarUpdate(int)), this, SLOT(onProgressBarUpdateSlot(int)));
+	connect(icpreg->record, SIGNAL(infoRec(QString)), this, SLOT(onInfoRecSlot(QString)));
 
 	//线程开始信号
 	th->start();
@@ -121,21 +124,34 @@ MainWindow::onViewerOff()
 	ui->pushButton_3->setEnabled(true);
 
 	ui->pushButton_4->setEnabled(true);
+
+	ui->pushButton_5->setEnabled(false);
 }
 
 void
 MainWindow::onPreviewOpenSlot()
 {
 	if (!fileName_Model.isEmpty())
+	{
 		ui->pushButton_4->setEnabled(false);
-
+		ui->pushButton_5->setEnabled(true);
+	}
+		
 	visualization = new Visualization(fileName_Model);
-	QThread * th = new QThread();
+	QThread * th = new QThread();	
 	visualization->moveToThread(th);
 
 	connect(th, SIGNAL(started()), visualization, SLOT(OnStarted()));
 	connect(visualization, SIGNAL(finished()), this, SLOT(onViewerOff()));
 	connect(visualization, SIGNAL(finished()), th, SLOT(terminate()));
+	connect(visualization->record, SIGNAL(progressBarUpdate(int)), this, SLOT(onProgressBarUpdateSlot(int)));
+	connect(visualization->record, SIGNAL(infoRec(QString)), this, SLOT(onInfoRecSlot(QString)));
 
 	th->start();
+}
+
+void
+MainWindow::onCalculateKdtreeSlot()
+{
+	visualization->kdtreeFlagToggle();
 }

@@ -23,6 +23,8 @@ ICPReg::ICPReg(QString filename_model, QString filename_data, int iterations)
 	cloud_tr.reset(new PointCloudT);  // Transformed point cloud
 	cloud_icp.reset(new PointCloudT);  // ICP output point cloud
 	viewer.reset(new pcl::visualization::PCLVisualizer("viewer", false));
+
+	record = new Record();
 }
 
 
@@ -48,18 +50,18 @@ ICPReg::proceed(QString filename_model, QString filename_data, int iterations)
 	time.tic();
 	
 
-	emit infoRec("Loading model...");
-	emit progressBarUpdate(10);
+	emit record->infoRec("Loading model...");
+	emit record->progressBarUpdate(10);
 	loadPointCloud(filename_model, *cloud_in);
 
-	emit infoRec("Loading model finished.");
-	emit progressBarUpdate(20);
+	emit record->infoRec("Loading model finished.");
+	emit record->progressBarUpdate(20);
 	
 	//Downsampling
 	downSampling(cloud_in);
 
-	emit infoRec("Downsampling finished.");
-	emit progressBarUpdate(30);
+	emit record->infoRec("Downsampling finished.");
+	emit record->progressBarUpdate(30);
 
 	// Defining a rotation matrix and translation vector
 	Eigen::Matrix4d transformation_matrix = Eigen::Matrix4d::Identity();
@@ -82,13 +84,13 @@ ICPReg::proceed(QString filename_model, QString filename_data, int iterations)
 	pcl::transformPointCloud(*cloud_in, *cloud_icp, transformation_matrix);
 	*cloud_tr = *cloud_icp;  // We backup cloud_icp into cloud_tr for later use
 
-	emit infoRec("Transform finished.");
-	emit progressBarUpdate(40);
+	emit record->infoRec("Transform finished.");
+	emit record->progressBarUpdate(40);
 	QString matrix;
 	Eigen::IOFormat OctaveFmt(Eigen::StreamPrecision, 0, ", ", ";\n", "", "", "[", "]");
 	std::stringstream trans;
 	trans << transformation_matrix.format(OctaveFmt);
-	emit infoRec(QString::fromStdString(trans.str()));
+	emit record->infoRec(QString::fromStdString(trans.str()));
 
 	// The Iterative Closest Point algorithm
 	time.tic();
@@ -109,7 +111,7 @@ ICPReg::proceed(QString filename_model, QString filename_data, int iterations)
 
 		trans.str("");
 		trans << transformation_matrix.format(OctaveFmt);
-		emit infoRec(QString::fromStdString(trans.str()));
+		emit record->infoRec(QString::fromStdString(trans.str()));
 	}
 	else
 	{
@@ -177,8 +179,8 @@ ICPReg::proceed(QString filename_model, QString filename_data, int iterations)
 
 			std::stringstream info_ss;
 			info_ss << "Applied 1 ICP iteration in " << time.toc() << " ms";
-			emit infoRec(QString::fromStdString(info_ss.str()));
-			emit progressBarUpdate(50);
+			emit record->infoRec(QString::fromStdString(info_ss.str()));
+			emit record->progressBarUpdate(50);
 
 			if (icp.hasConverged())
 			{
@@ -190,12 +192,12 @@ ICPReg::proceed(QString filename_model, QString filename_data, int iterations)
 
 				trans.str("");
 				trans << transformation_matrix.format(OctaveFmt);
-				emit infoRec(QString::fromStdString(trans.str()));
+				emit record->infoRec(QString::fromStdString(trans.str()));
 
 				info_ss.str("");
 				info_ss << "ICP has converged, score is " << icp.getFitnessScore();
-				emit infoRec(QString::fromStdString(info_ss.str()));
-				emit progressBarUpdate(100);
+				emit record->infoRec(QString::fromStdString(info_ss.str()));
+				emit record->progressBarUpdate(100);
 
 				ss.str("");
 				ss << iterations;

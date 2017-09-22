@@ -1,6 +1,7 @@
 #pragma once
 
 #include "res.h"
+#include "record.h"
 #include <QObject>
 
 #include <boost/thread/thread.hpp>
@@ -20,6 +21,8 @@ public:
 	Visualization(QString);
 	virtual ~Visualization();
 
+	Record *record;
+
 	QString filename;
 
 	PointCloudT::Ptr cloud;
@@ -29,10 +32,14 @@ public:
 
 	void preview(QString filename);
 
+	bool kdtreeflag;
+	void calculateKdtree();
+
 signals:
 	void finished();
 
 public slots:
 	void OnStarted();
+	void kdtreeFlagToggle();
 };
 
