@@ -46,23 +46,17 @@ ICPReg::proceed(QString filename_model, QString filename_data, int iterations)
 {
 	pcl::console::TicToc time;
 	time.tic();
-	std::string file_name = filename_model.toStdString();
+	
 
 	emit infoRec("Loading model...");
 	emit progressBarUpdate(10);
-
-	pcl::io::loadPLYFile(file_name, *cloud_in);
+	loadPointCloud(filename_model, *cloud_in);
 
 	emit infoRec("Loading model finished.");
 	emit progressBarUpdate(20);
 	
-						 //Downsampling
-	pcl::console::print_highlight("Downsampling...\n");
-	pcl::VoxelGrid<pcl::PointXYZ> grid;
-	const float leaf = 0.005f;
-	grid.setLeafSize(leaf, leaf, leaf);
-	grid.setInputCloud(cloud_in);
-	grid.filter(*cloud_in);
+	//Downsampling
+	downSampling(cloud_in);
 
 	emit infoRec("Downsampling finished.");
 	emit progressBarUpdate(30);
@@ -96,7 +90,7 @@ ICPReg::proceed(QString filename_model, QString filename_data, int iterations)
 	trans << transformation_matrix.format(OctaveFmt);
 	emit infoRec(QString::fromStdString(trans.str()));
 
-							 // The Iterative Closest Point algorithm
+	// The Iterative Closest Point algorithm
 	time.tic();
 	pcl::IterativeClosestPoint<PointT, PointT> icp;
 	icp.setMaximumIterations(iterations);
@@ -220,6 +214,36 @@ ICPReg::proceed(QString filename_model, QString filename_data, int iterations)
 		//emit progressBarUpdate(100);
 	}
 	qDebug("123");
+}
+
+void
+ICPReg::loadPointCloud(QString filename, pcl::PointCloud<PointT> &cloud)
+{
+	std::string file_name = filename.toStdString();
+	pcl::io::loadPLYFile(file_name, cloud);
+}
+
+void
+ICPReg::downSampling(PointCloudT::Ptr cloud)
+{
+	pcl::console::print_highlight("Downsampling...\n");
+	pcl::VoxelGrid<pcl::PointXYZ> grid;
+	const float leaf = 0.005f;
+	grid.setLeafSize(leaf, leaf, leaf);
+	grid.setInputCloud(cloud);
+	grid.filter(*cloud);
+}
+
+void
+ICPReg::outliersRemover(PointCloudT::Ptr cloud)
+{
+
+}
+
+void
+ICPReg::infoCollect()
+{
+
 }
 
 void
