@@ -20,7 +20,6 @@ MainWindow::MainWindow(QWidget *parent) :
 	connect(ui->pushButton, SIGNAL(clicked()), this, SLOT(onModelFileOpenSlot()));
 	connect(ui->pushButton_2, SIGNAL(clicked()), this, SLOT(onDataFileOpenSlot()));
 	connect(ui->pushButton_3, SIGNAL(clicked()), this, SLOT(onVisualizerOpenSlot()));
-	connect(ui->pushButton_4, SIGNAL(clicked()), this, SLOT(onPreviewOpenSlot()));
 
 	ui->progressBar->setRange(0, 100);
 	ui->progressBar->setValue(0);
@@ -34,18 +33,16 @@ MainWindow::~MainWindow()
 void
 MainWindow::icp_proceed(QString filename_model, QString filename_data, int iterations)
 {
-	icpreg = new ICPReg(filename_model, filename_data, iterations);//你的工作线程类
-	QThread * th = new QThread();// 创建一个线程
-	icpreg->moveToThread(th);//把你的类放在刚创建的线程里
+	icpreg = new ICPReg(filename_model, filename_data, iterations);
+	QThread * th = new QThread();
+	icpreg->moveToThread(th);
 
-	//连接MainWindow主界面类和工作线程类的信号槽
-	connect(th, SIGNAL(started()), icpreg, SLOT(OnStarted()));//线程开始信号
+	connect(th, SIGNAL(started()), icpreg, SLOT(OnStarted()));
 	connect(icpreg, SIGNAL(finished()), this, SLOT(onViewerOff()));
-	connect(icpreg, SIGNAL(finished()), th, SLOT(terminate()));//线程结束信号
+	connect(icpreg, SIGNAL(finished()), th, SLOT(terminate()));
 	connect(icpreg, SIGNAL(progressBarUpdate(int)), this, SLOT(onProgressBarUpdateSlot(int)));
 	connect(icpreg, SIGNAL(infoRec(QString)), this, SLOT(onInfoRecSlot(QString)));
 
-	//线程开始信号
 	th->start();
 }
 
@@ -54,7 +51,7 @@ MainWindow::onModelFileOpenSlot()
 {
 	QString fileName = QFileDialog::getOpenFileName(this,
 		tr("Open PointCloud"), ".",
-		tr("Open PLY/PCD files(*.ply *.pcd)"));
+		tr("Open PLY files(*.ply)"));
 	QFileInfo temDir(fileName);
 	if (!fileName.isEmpty())
 	{
@@ -68,7 +65,7 @@ MainWindow::onDataFileOpenSlot()
 {
 	QString fileName = QFileDialog::getOpenFileName(this,
 		tr("Open PointCloud"), ".",
-		tr("Open PLY/PCD files(*.ply *.pcd)"));
+		tr("Open PLY files(*.ply)"));
 	QFileInfo temDir(fileName);
 	if (!fileName.isEmpty())
 	{
@@ -119,23 +116,4 @@ void
 MainWindow::onViewerOff()
 {
 	ui->pushButton_3->setEnabled(true);
-
-	ui->pushButton_4->setEnabled(true);
-}
-
-void
-MainWindow::onPreviewOpenSlot()
-{
-	if (!fileName_Model.isEmpty())
-		ui->pushButton_4->setEnabled(false);
-
-	visualization = new Visualization(fileName_Model);
-	QThread * th = new QThread();
-	visualization->moveToThread(th);
-
-	connect(th, SIGNAL(started()), visualization, SLOT(OnStarted()));
-	connect(visualization, SIGNAL(finished()), this, SLOT(onViewerOff()));
-	connect(visualization, SIGNAL(finished()), th, SLOT(terminate()));
-
-	th->start();
 }

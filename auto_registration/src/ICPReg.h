@@ -1,5 +1,4 @@
 #pragma once
-#include "res.h"
 #include <QObject>
 
 #include <iostream>
@@ -7,12 +6,16 @@
 
 
 #include <pcl/io/ply_io.h>
+#include <pcl/point_types.h>
 #include <pcl/registration/icp.h>
 #include <pcl/visualization/pcl_visualizer.h>
 #include <pcl/console/time.h>   // TicToc
 #include <pcl/filters/filter.h>
 #include <pcl/filters/voxel_grid.h>
 
+
+typedef pcl::PointXYZ PointT;
+typedef pcl::PointCloud<PointT> PointCloudT;
 
 
 class ICPReg : public QObject

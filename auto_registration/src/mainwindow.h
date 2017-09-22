@@ -2,7 +2,6 @@
 #define MAINWINDOW_H
 
 #include "ICPReg.h"
-#include "visualization.h"
 #include <QMainWindow>
 
 #include <iostream>
@@ -31,12 +30,16 @@ public:
     ~MainWindow();
 
 	ICPReg *icpreg;
-	Visualization *visualization;
 
+	//void print4x4Matrix(const Eigen::Matrix4d & matrix);
+	//void keyboardEventOccurred(const pcl::visualization::KeyboardEvent& event,
+		//void* nothing);
 	void icp_proceed(QString filename_model, QString filename_data, int iterations);
 
 private:
     Ui::MainWindow *ui;
+
+	//bool next_iteration;
 
 	QString fileName_Model;
 	QString fileName_Data;
@@ -50,8 +53,6 @@ private slots:
 	void onProgressBarUpdateSlot(int);
 	void onInfoRecSlot(QString);
 	void onViewerOff();
-
-	void onPreviewOpenSlot();
 };
 
 #endif // MAINWINDOW_H

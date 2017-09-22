@@ -206,5 +206,7 @@ main (int argc,
     }
     next_iteration = false;
   }
+
+  system("pause");
   return (0);
 }
