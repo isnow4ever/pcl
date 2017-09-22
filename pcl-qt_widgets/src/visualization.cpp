@@ -9,7 +9,8 @@ Visualization::Visualization(QString filename)
 	cloud.reset(new PointCloudT);
 	viewer.reset(new pcl::visualization::PCLVisualizer("preview", false));
 
-	kdtreeflag = false;
+	kdtreeFlag = false;
+	centroidFlag = false;
 }
 
 
@@ -58,10 +59,16 @@ Visualization::preview(QString filename)
 
 	while (!viewer->wasStopped())
 	{
-		if (kdtreeflag)
+		if (kdtreeFlag)
 		{
-			calculateKdtree();
-			kdtreeflag = false;
+			computeKdtree();
+			kdtreeFlag = false;
+		}
+
+		if (centroidFlag)
+		{
+			computeCentroid();
+			centroidFlag = false;
 		}
 		viewer->spinOnce(100);
 		boost::this_thread::sleep(boost::posix_time::microseconds(100000));
@@ -78,12 +85,11 @@ Visualization::OnStarted()
 void
 Visualization::kdtreeFlagToggle()
 {
-	kdtreeflag = true;
-	qDebug("kdtree");
+	kdtreeFlag = true;
 }
 
 void
-Visualization::calculateKdtree()
+Visualization::computeKdtree()
 {
 	//kd-tree tutorials
 	srand(time(NULL));
@@ -118,4 +124,31 @@ Visualization::calculateKdtree()
 			record->infoRec(QString::fromStdString(ss.str()));
 		}
 	}
+}
+
+void
+Visualization::centroidFlagToggle()
+{
+	centroidFlag = true;
+}
+
+void
+Visualization::computeCentroid()
+{
+	Eigen::Vector4f xyz_centroid;
+	pcl::compute3DCentroid(*cloud, xyz_centroid);
+	std::stringstream ss;
+	for (size_t i = 0; i < 4; i++)
+	{
+		ss << " " << xyz_centroid(i);
+	}
+	ss << std::endl;
+	record->infoRec(QString::fromStdString(ss.str()));
+
+	PointT center;
+	center.x = xyz_centroid(0);
+	center.y = xyz_centroid(1);
+	center.z = xyz_centroid(2);
+
+	viewer->addSphere(center, 0.1, 1, 0.2, 0.2, "centroid");
 }

@@ -32,8 +32,11 @@ public:
 
 	void preview(QString filename);
 
-	bool kdtreeflag;
-	void calculateKdtree();
+	bool kdtreeFlag;
+	void computeKdtree();
+
+	bool centroidFlag;
+	void computeCentroid();
 
 signals:
 	void finished();
@@ -41,5 +44,6 @@ signals:
 public slots:
 	void OnStarted();
 	void kdtreeFlagToggle();
+	void centroidFlagToggle();
 };
 

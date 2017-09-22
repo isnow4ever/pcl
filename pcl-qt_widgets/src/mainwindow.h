@@ -52,7 +52,8 @@ private slots:
 	void onViewerOff();
 
 	void onPreviewOpenSlot();
-	void onCalculateKdtreeSlot();
+	void onComputeKdtreeSlot();
+	void onComputeCentroidSlot();
 };
 
 #endif // MAINWINDOW_H

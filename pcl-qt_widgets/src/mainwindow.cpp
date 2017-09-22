@@ -21,12 +21,14 @@ MainWindow::MainWindow(QWidget *parent) :
 	connect(ui->pushButton_2, SIGNAL(clicked()), this, SLOT(onDataFileOpenSlot()));
 	connect(ui->pushButton_3, SIGNAL(clicked()), this, SLOT(onVisualizerOpenSlot()));
 	connect(ui->pushButton_4, SIGNAL(clicked()), this, SLOT(onPreviewOpenSlot())); 
-	connect(ui->pushButton_5, SIGNAL(clicked()), this, SLOT(onCalculateKdtreeSlot()));
+	connect(ui->pushButton_5, SIGNAL(clicked()), this, SLOT(onComputeKdtreeSlot()));
+	connect(ui->pushButton_6, SIGNAL(clicked()), this, SLOT(onComputeCentroidSlot()));
 
 	ui->progressBar->setRange(0, 100);
 	ui->progressBar->setValue(0);
 
 	ui->pushButton_5->setEnabled(false);
+	ui->pushButton_6->setEnabled(false);
 }
 
 MainWindow::~MainWindow()
@@ -126,6 +128,8 @@ MainWindow::onViewerOff()
 	ui->pushButton_4->setEnabled(true);
 
 	ui->pushButton_5->setEnabled(false);
+
+	ui->pushButton_6->setEnabled(false);
 }
 
 void
@@ -135,6 +139,7 @@ MainWindow::onPreviewOpenSlot()
 	{
 		ui->pushButton_4->setEnabled(false);
 		ui->pushButton_5->setEnabled(true);
+		ui->pushButton_6->setEnabled(true);
 	}
 		
 	visualization = new Visualization(fileName_Model);
@@ -151,7 +156,13 @@ MainWindow::onPreviewOpenSlot()
 }
 
 void
-MainWindow::onCalculateKdtreeSlot()
+MainWindow::onComputeKdtreeSlot()
 {
 	visualization->kdtreeFlagToggle();
+}
+
+void
+MainWindow::onComputeCentroidSlot()
+{
+	visualization->centroidFlagToggle();
 }
