@@ -9,8 +9,11 @@
 
 #include <QMessageBox>
 
+using namespace pcl;
+
 typedef pcl::PointXYZ PointT;
 typedef pcl::PointCloud<PointT> PointCloudT;
 
 typedef pcl::PointXYZRGB PointC;
 typedef pcl::PointCloud<PointC> PointCloudC;
+

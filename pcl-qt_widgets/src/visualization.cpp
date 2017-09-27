@@ -151,4 +151,26 @@ Visualization::computeCentroid()
 	center.z = xyz_centroid(2);
 
 	viewer->addSphere(center, 0.1, 1, 0.2, 0.2, "centroid");
+	// Create the normal estimation class, and pass the input dataset to it
+	pcl::NormalEstimation<pcl::PointXYZ, pcl::Normal> ne;
+	ne.setInputCloud(cloud);
+
+	// Create an empty kdtree representation, and pass it to the normal estimation object.
+	// Its content will be filled inside the object, based on the given input dataset (as no other search surface is given).
+	pcl::search::KdTree<pcl::PointXYZ>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZ>());
+	ne.setSearchMethod(tree);
+
+	// Output datasets
+	pcl::PointCloud<pcl::Normal>::Ptr cloud_normals(new pcl::PointCloud<pcl::Normal>);
+
+	// Use all neighbors in a sphere of radius 3cm
+	ne.setRadiusSearch(0.03);
+
+	// Compute the features
+	ne.compute(*cloud_normals);
+
+	viewer->addPointCloudNormals<pcl::PointXYZ, pcl::Normal>(cloud, cloud_normals,10,10);
+	// Compute the 3x3 covariance matrix
+	//Eigen::Matrix3f covariance_matrix;
+	//pcl::computeCovarianceMatrix(cloud, xyz_centroid, covariance_matrix);
 }

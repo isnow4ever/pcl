@@ -9,6 +9,8 @@
 #include <pcl/visualization/pcl_visualizer.h>
 #include <pcl/io/ply_io.h>
 #include <pcl/io/pcd_io.h>
+#include <pcl/features/pfh.h>
+#include <pcl/features/normal_3d.h>
 
 #include <iostream>
 #include <string>
