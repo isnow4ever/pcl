@@ -42,6 +42,10 @@ private:
 	QString fileName_Data;
 
 	int iterations;
+	int feature_id;
+
+signals:
+	void feature_estimate(int);
 
 private slots:
 	void onVisualizerOpenSlot();
@@ -54,6 +58,7 @@ private slots:
 	void onPreviewOpenSlot();
 	void onComputeKdtreeSlot();
 	void onComputeCentroidSlot();
+	void onComputeNormalsSlot();
 };
 
 #endif // MAINWINDOW_H

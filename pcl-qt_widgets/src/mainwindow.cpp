@@ -23,12 +23,18 @@ MainWindow::MainWindow(QWidget *parent) :
 	connect(ui->pushButton_4, SIGNAL(clicked()), this, SLOT(onPreviewOpenSlot())); 
 	connect(ui->pushButton_5, SIGNAL(clicked()), this, SLOT(onComputeKdtreeSlot()));
 	connect(ui->pushButton_6, SIGNAL(clicked()), this, SLOT(onComputeCentroidSlot()));
+	connect(ui->pushButton_7, SIGNAL(clicked()), this, SLOT(onComputeNormalsSlot()));
 
 	ui->progressBar->setRange(0, 100);
 	ui->progressBar->setValue(0);
 
 	ui->pushButton_5->setEnabled(false);
 	ui->pushButton_6->setEnabled(false);
+	ui->pushButton_7->setEnabled(false);
+
+	ui->spinBox_2->setValue(100);
+	ui->doubleSpinBox->setValue(0.2);
+	ui->doubleSpinBox_2->setValue(0.3);
 }
 
 MainWindow::~MainWindow()
@@ -130,6 +136,8 @@ MainWindow::onViewerOff()
 	ui->pushButton_5->setEnabled(false);
 
 	ui->pushButton_6->setEnabled(false);
+
+	ui->pushButton_7->setEnabled(false);
 }
 
 void
@@ -140,6 +148,7 @@ MainWindow::onPreviewOpenSlot()
 		ui->pushButton_4->setEnabled(false);
 		ui->pushButton_5->setEnabled(true);
 		ui->pushButton_6->setEnabled(true);
+		ui->pushButton_7->setEnabled(true);
 	}
 		
 	visualization = new Visualization(fileName_Model);
@@ -148,7 +157,7 @@ MainWindow::onPreviewOpenSlot()
 
 	connect(th, SIGNAL(started()), visualization, SLOT(OnStarted()));
 	connect(visualization, SIGNAL(finished()), this, SLOT(onViewerOff()));
-	connect(visualization, SIGNAL(finished()), th, SLOT(terminate()));
+	connect(visualization, SIGNAL(finished()), th, SLOT(quit()));
 	connect(visualization->record, SIGNAL(progressBarUpdate(int)), this, SLOT(onProgressBarUpdateSlot(int)));
 	connect(visualization->record, SIGNAL(infoRec(QString)), this, SLOT(onInfoRecSlot(QString)));
 
@@ -158,11 +167,20 @@ MainWindow::onPreviewOpenSlot()
 void
 MainWindow::onComputeKdtreeSlot()
 {
-	visualization->kdtreeFlagToggle();
+	visualization->feature_id = 1;
 }
 
 void
 MainWindow::onComputeCentroidSlot()
 {
-	visualization->centroidFlagToggle();
+	visualization->feature_id = 2;
+}
+
+void
+MainWindow::onComputeNormalsSlot()
+{
+	visualization->normal_level = ui->spinBox_2->value();
+	visualization->normal_scale = ui->doubleSpinBox->value();
+	visualization->search_radius = ui->doubleSpinBox_2->value();
+	visualization->feature_id = 3;
 }

@@ -3,6 +3,7 @@
 #include "res.h"
 #include "record.h"
 #include <QObject>
+#include <QThread>
 
 #include <boost/thread/thread.hpp>
 #include <pcl/common/common_headers.h>
@@ -11,6 +12,7 @@
 #include <pcl/io/pcd_io.h>
 #include <pcl/features/pfh.h>
 #include <pcl/features/normal_3d.h>
+#include <pcl/features/normal_3d_omp.h>
 
 #include <iostream>
 #include <string>
@@ -34,18 +36,32 @@ public:
 
 	void preview(QString filename);
 
-	bool kdtreeFlag;
+	int feature_id;
+
+	//bool kdtreeFlag;
 	void computeKdtree();
 
-	bool centroidFlag;
+	//bool centroidFlag;
 	void computeCentroid();
+
+	double search_radius;
+	int normal_level;
+	double normal_scale;
+	void computeNormals();
 
 signals:
 	void finished();
 
 public slots:
 	void OnStarted();
-	void kdtreeFlagToggle();
-	void centroidFlagToggle();
+	//void kdtreeFlagToggle();
+	//void centroidFlagToggle();
+	void feature_id_slot(int);
+
+private:
+	
+//
+//protected:
+//	void run();
 };
 
