@@ -13,6 +13,9 @@
 #include <pcl/features/pfh.h>
 #include <pcl/features/normal_3d.h>
 #include <pcl/features/normal_3d_omp.h>
+#include <pcl/features/fpfh.h>
+#include <pcl/visualization/histogram_visualizer.h>
+#include<pcl/visualization/pcl_plotter.h>
 
 #include <iostream>
 #include <string>
@@ -30,6 +33,7 @@ public:
 	QString filename;
 
 	PointCloudT::Ptr cloud;
+	PointCloudN::Ptr cloud_normals;
 
 	boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer;
 
@@ -48,6 +52,8 @@ public:
 	int normal_level;
 	double normal_scale;
 	void computeNormals();
+
+	void computeFPFH();
 
 signals:
 	void finished();

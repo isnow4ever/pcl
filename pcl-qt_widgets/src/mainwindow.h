@@ -59,6 +59,7 @@ private slots:
 	void onComputeKdtreeSlot();
 	void onComputeCentroidSlot();
 	void onComputeNormalsSlot();
+	void onComputeFPFHSlot();
 };
 
 #endif // MAINWINDOW_H

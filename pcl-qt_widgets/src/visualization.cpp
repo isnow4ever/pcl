@@ -7,6 +7,7 @@ Visualization::Visualization(QString filename)
 {
 	record = new Record();
 	cloud.reset(new PointCloudT);
+	cloud_normals.reset(new PointCloudN);
 	viewer.reset(new pcl::visualization::PCLVisualizer("preview", false));
 
 	//kdtreeFlag = false;
@@ -75,6 +76,9 @@ Visualization::preview(QString filename)
 			break;
 		case 3:
 			computeNormals();
+			break;
+		case 4:
+			computeFPFH();
 			break;
 		default:
 			break;
@@ -160,7 +164,8 @@ Visualization::computeCentroid()
 void Visualization::computeNormals()
 {
 	// Create the normal estimation class, and pass the input dataset to it
-	pcl::NormalEstimationOMP<pcl::PointXYZ, pcl::Normal> ne;
+	//pcl::NormalEstimationOMP<pcl::PointXYZ, pcl::Normal> ne;
+	pcl::NormalEstimation<pcl::PointXYZ, pcl::Normal> ne;
 	ne.setInputCloud(cloud);
 
 	// Create an empty kdtree representation, and pass it to the normal estimation object.
@@ -169,7 +174,7 @@ void Visualization::computeNormals()
 	ne.setSearchMethod(tree);
 
 	// Output datasets
-	pcl::PointCloud<pcl::Normal>::Ptr cloud_normals(new pcl::PointCloud<pcl::Normal>);
+	//PointCloudN::Ptr cloud_normals(new PointCloudN);
 
 	// Use all neighbors in a sphere of radius 3cm
 	ne.setRadiusSearch(search_radius);
@@ -181,4 +186,31 @@ void Visualization::computeNormals()
 	// Compute the 3x3 covariance matrix
 	//Eigen::Matrix3f covariance_matrix;
 	//pcl::computeCovarianceMatrix(cloud, xyz_centroid, covariance_matrix);
+}
+
+void Visualization::computeFPFH()
+{
+	pcl::FPFHEstimation<pcl::PointXYZ, pcl::Normal, pcl::FPFHSignature33>fpfh;
+
+	fpfh.setInputCloud(cloud);
+	fpfh.setInputNormals(cloud_normals);
+
+	pcl::search::KdTree<PointT>::Ptr tree(new pcl::search::KdTree<PointT>);
+	fpfh.setSearchMethod(tree);
+	pcl::PointCloud<pcl::FPFHSignature33>::Ptr fpfhs(new pcl::PointCloud<pcl::FPFHSignature33>());
+
+	fpfh.setRadiusSearch(search_radius);
+	fpfh.compute(*fpfhs);
+
+	//pcl::visualization::PCLHistogramVisualizer hist_viewer;
+	//hist_viewer.addFeatureHistogram(*fpfhs, 33);
+
+	// Plotter object.
+	pcl::visualization::PCLPlotter plotter;
+	// We need to set the size of the descriptor beforehand.
+	plotter.addFeatureHistogram(*fpfhs, 33);
+
+	plotter.plot();
+
+
 }
