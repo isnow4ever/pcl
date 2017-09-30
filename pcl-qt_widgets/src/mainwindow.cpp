@@ -37,6 +37,14 @@ MainWindow::MainWindow(QWidget *parent) :
 	ui->spinBox_2->setValue(100);
 	ui->doubleSpinBox->setValue(0.2);
 	ui->doubleSpinBox_2->setValue(0.3);
+
+	QStatusBar* bar = ui->statusBar;
+	statusLabel = new QLabel;
+	statusLabel->setMinimumSize(500, 20);
+	statusLabel->setFrameShape(QFrame::Panel);
+	statusLabel->setFrameShadow(QFrame::Sunken);
+	bar->addWidget(statusLabel);
+	statusLabel->setText("hello pcl!");
 }
 
 MainWindow::~MainWindow()
@@ -54,9 +62,10 @@ MainWindow::icp_proceed(QString filename_model, QString filename_data, int itera
 	//连接MainWindow主界面类和工作线程类的信号槽
 	connect(th, SIGNAL(started()), icpreg, SLOT(OnStarted()));//线程开始信号
 	connect(icpreg, SIGNAL(finished()), this, SLOT(onViewerOff()));
-	connect(icpreg, SIGNAL(finished()), th, SLOT(terminate()));//线程结束信号
+	connect(icpreg, SIGNAL(finished()), th, SLOT(quit()));//线程结束信号
 	connect(icpreg->record, SIGNAL(progressBarUpdate(int)), this, SLOT(onProgressBarUpdateSlot(int)));
-	connect(icpreg->record, SIGNAL(infoRec(QString)), this, SLOT(onInfoRecSlot(QString)));
+	connect(icpreg->record, SIGNAL(infoUpdate(QString)), this, SLOT(onInfoRecSlot(QString)));
+	connect(icpreg->record, SIGNAL(statusUpdate(QString)), this, SLOT(onStatusUpdateSlot(QString)));
 
 	//线程开始信号
 	th->start();
@@ -108,24 +117,16 @@ MainWindow::onProgressBarUpdateSlot(int percent)
 }
 
 void
-MainWindow::onInfoRecSlot(QString info)
+MainWindow::onInfoRecSlot(QString content)
 {
-	QFile file("file.txt");
-	if (!file.open(QFile::ReadWrite | QFile::Text))
-		QMessageBox::warning(this, "sdf", "can't open", QMessageBox::Yes);
-	QTextStream in(&file);
-	QString content = in.readAll();
-	QDateTime time = QDateTime::currentDateTime();//获取系统现在的时间
-	QString str = time.toString("yyyy-MM-dd hh:mm:ss"); //设置显示格式
-	in << str << endl;
-	in << info << endl;
-	file.close();
-
-	content.append(str + "\r\n");
-	content.append(info + "\r\n");
-	
 	ui->textBrowser_3->setText(content);
 	ui->textBrowser_3->moveCursor(QTextCursor::End);
+}
+
+void
+MainWindow::onStatusUpdateSlot(QString info)
+{
+	statusLabel->setText(info);
 }
 
 void
@@ -164,7 +165,8 @@ MainWindow::onPreviewOpenSlot()
 	connect(visualization, SIGNAL(finished()), this, SLOT(onViewerOff()));
 	connect(visualization, SIGNAL(finished()), th, SLOT(quit()));
 	connect(visualization->record, SIGNAL(progressBarUpdate(int)), this, SLOT(onProgressBarUpdateSlot(int)));
-	connect(visualization->record, SIGNAL(infoRec(QString)), this, SLOT(onInfoRecSlot(QString)));
+	connect(visualization->record, SIGNAL(infoUpdate(QString)), this, SLOT(onInfoRecSlot(QString)));
+	connect(visualization->record, SIGNAL(statusUpdate(QString)), this, SLOT(onStatusUpdateSlot(QString)));
 
 	th->start();
 }

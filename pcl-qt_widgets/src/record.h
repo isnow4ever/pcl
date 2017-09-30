@@ -1,6 +1,12 @@
 #pragma once
 
 #include <QObject>
+#include <QFileDialog>
+#include <QDir>
+#include <QThread>
+#include <QDateTime>
+#include <QTextStream>
+#include <QMessageBox>
 
 #include <iostream>
 #include <string>
@@ -13,8 +19,13 @@ public:
 	Record();
 	virtual ~Record();
 
+	QString info;
+
+	void infoRec(QString);
+
 signals:
 	void progressBarUpdate(int);
-	void infoRec(QString);
+	void infoUpdate(QString content);
+	void statusUpdate(QString info);
 };
 

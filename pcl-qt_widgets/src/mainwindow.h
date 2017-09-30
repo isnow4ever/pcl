@@ -4,6 +4,7 @@
 #include "ICPReg.h"
 #include "visualization.h"
 #include <QMainWindow>
+#include <QLabel>
 
 #include <iostream>
 #include <string>
@@ -36,8 +37,11 @@ public:
 	void icp_proceed(QString filename_model, QString filename_data, int iterations);
 
 private:
+	//GUI
     Ui::MainWindow *ui;
+	QLabel* statusLabel;
 
+	//data
 	QString fileName_Model;
 	QString fileName_Data;
 
@@ -45,17 +49,20 @@ private:
 	int feature_id;
 
 signals:
-	void feature_estimate(int);
+	void feature_estimate(int);//compute features signal
 
 private slots:
+    //GUI slots
 	void onVisualizerOpenSlot();
 	void onModelFileOpenSlot();
 	void onDataFileOpenSlot();
 	void onProgressBarUpdateSlot(int);
 	void onInfoRecSlot(QString);
+	void onStatusUpdateSlot(QString);
 	void onViewerOff();
 
-	void onPreviewOpenSlot();
+	//function button slots
+	void onPreviewOpenSlot();//Preview
 	void onComputeKdtreeSlot();
 	void onComputeCentroidSlot();
 	void onComputeNormalsSlot();

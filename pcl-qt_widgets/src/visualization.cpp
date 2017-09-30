@@ -31,6 +31,10 @@ Visualization::preview(QString filename)
 	viewer.reset(new pcl::visualization::PCLVisualizer("preview", true));
 
 	std::string file_name = filename.toStdString();
+
+	pcl_time.tic();
+	record->statusUpdate("Loading model...");
+
 	if (filename.endsWith(".pcd"))
 	{
 		if (!pcl::io::loadPCDFile(file_name, *cloud))
@@ -52,7 +56,14 @@ Visualization::preview(QString filename)
 			//int ret = msgBox.exec();
 		}
 	}
-
+	//display number of points
+	record->info = QString("data size: "
+		+ QString::number(cloud->points.size())
+		+ "; duration: "
+		+ QString::number(pcl_time.toc())
+		+ "ms;");
+	record->infoRec(record->info);
+	record->statusUpdate(record->info);
 
 	viewer->setBackgroundColor(0, 0, 0);
 	pcl::visualization::PointCloudColorHandlerCustom<PointT> rgb(cloud, 20, 180, 20);
@@ -105,6 +116,8 @@ void Visualization::feature_id_slot(int feature)
 void
 Visualization::computeKdtree()
 {
+	record->statusUpdate("compute Kdtree...");
+	pcl_time.tic();
 	//kd-tree tutorials
 	srand(time(NULL));
 	pcl::KdTreeFLANN<PointT> kdtree;
@@ -138,11 +151,14 @@ Visualization::computeKdtree()
 			record->infoRec(QString::fromStdString(ss.str()));
 		}
 	}
+	record->statusUpdate("completed in " + QString::number(pcl_time.toc()) + "ms;");
 }
 
 void
 Visualization::computeCentroid()
 {
+	record->infoRec("compute Centroid...");
+	pcl_time.tic();
 	Eigen::Vector4f xyz_centroid;
 	pcl::compute3DCentroid(*cloud, xyz_centroid);
 	std::stringstream ss;
@@ -159,10 +175,13 @@ Visualization::computeCentroid()
 	center.z = xyz_centroid(2);
 
 	viewer->addSphere(center, 0.1, 1, 0.2, 0.2, "centroid");
+	record->statusUpdate("completed in " + QString::number(pcl_time.toc()) + "ms;");
 }
 
 void Visualization::computeNormals()
 {
+	record->statusUpdate("compute Normals...");
+	pcl_time.tic();
 	// Create the normal estimation class, and pass the input dataset to it
 	//pcl::NormalEstimationOMP<pcl::PointXYZ, pcl::Normal> ne;
 	pcl::NormalEstimation<pcl::PointXYZ, pcl::Normal> ne;
@@ -178,7 +197,7 @@ void Visualization::computeNormals()
 
 	// Use all neighbors in a sphere of radius 3cm
 	ne.setRadiusSearch(search_radius);
-	ne.setViewPoint(0, 0, 0);
+	//ne.setViewPoint(0, 0, 0);
 	// Compute the features
 	ne.compute(*cloud_normals);
 
@@ -186,10 +205,13 @@ void Visualization::computeNormals()
 	// Compute the 3x3 covariance matrix
 	//Eigen::Matrix3f covariance_matrix;
 	//pcl::computeCovarianceMatrix(cloud, xyz_centroid, covariance_matrix);
+	record->statusUpdate("completed in " + QString::number(pcl_time.toc()) + "ms;");
 }
 
 void Visualization::computeFPFH()
 {
+	record->statusUpdate("compute FPFH...");
+	pcl_time.tic();
 	pcl::FPFHEstimation<pcl::PointXYZ, pcl::Normal, pcl::FPFHSignature33>fpfh;
 
 	fpfh.setInputCloud(cloud);
@@ -201,7 +223,7 @@ void Visualization::computeFPFH()
 
 	fpfh.setRadiusSearch(search_radius);
 	fpfh.compute(*fpfhs);
-
+	record->statusUpdate("completed in " + QString::number(pcl_time.toc()) + "ms;");
 	//pcl::visualization::PCLHistogramVisualizer hist_viewer;
 	//hist_viewer.addFeatureHistogram(*fpfhs, 33);
 
@@ -211,6 +233,4 @@ void Visualization::computeFPFH()
 	plotter.addFeatureHistogram(*fpfhs, 33);
 
 	plotter.plot();
-
-
 }

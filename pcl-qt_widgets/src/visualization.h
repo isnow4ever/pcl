@@ -36,7 +36,7 @@ public:
 	PointCloudN::Ptr cloud_normals;
 
 	boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer;
-
+	pcl::console::TicToc pcl_time;
 
 	void preview(QString filename);
 
