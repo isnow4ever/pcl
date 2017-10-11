@@ -6,6 +6,10 @@
 #include <pcl/console/time.h>   // TicToc
 #include <pcl/filters/filter.h>
 #include <pcl/filters/voxel_grid.h>
+#include <pcl/filters/statistical_outlier_removal.h>
+#include <pcl/filters/radius_outlier_removal.h>
+
+#include <Eigen/Geometry> 
 
 #include <QMessageBox>
 

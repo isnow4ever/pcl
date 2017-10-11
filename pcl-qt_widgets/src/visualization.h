@@ -33,6 +33,7 @@ public:
 	QString filename;
 
 	PointCloudT::Ptr cloud;
+	PointCloudT::Ptr cloud_out;
 	PointCloudN::Ptr cloud_normals;
 
 	boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer;
@@ -41,6 +42,8 @@ public:
 	void preview(QString filename);
 
 	int feature_id;
+
+	void filter_n_downsampling();
 
 	//bool kdtreeFlag;
 	void computeKdtree();

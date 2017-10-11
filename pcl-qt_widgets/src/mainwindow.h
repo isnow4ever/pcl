@@ -67,6 +67,7 @@ private slots:
 	void onComputeCentroidSlot();
 	void onComputeNormalsSlot();
 	void onComputeFPFHSlot();
+	void onFilterNDownsampling();
 };
 
 #endif // MAINWINDOW_H

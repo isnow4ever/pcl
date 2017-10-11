@@ -1,5 +1,5 @@
 #include "visualization.h"
-
+#include <Eigen/Geometry> 
 
 
 Visualization::Visualization(QString filename)
@@ -7,6 +7,7 @@ Visualization::Visualization(QString filename)
 {
 	record = new Record();
 	cloud.reset(new PointCloudT);
+	cloud_out.reset(new PointCloudT);
 	cloud_normals.reset(new PointCloudN);
 	viewer.reset(new pcl::visualization::PCLVisualizer("preview", false));
 
@@ -70,7 +71,7 @@ Visualization::preview(QString filename)
 	//pcl::visualization::PointCloudColorHandlerRGBField<PointC> rgb(cloud);
 	viewer->addPointCloud(cloud, rgb, "sample cloud");
 	viewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, "sample cloud");
-	viewer->addCoordinateSystem(1.0);
+	viewer->addCoordinateSystem(10.0);
 	viewer->initCameraParameters();
 
 	
@@ -90,6 +91,9 @@ Visualization::preview(QString filename)
 			break;
 		case 4:
 			computeFPFH();
+			break;
+		case 5:
+			filter_n_downsampling();
 			break;
 		default:
 			break;
@@ -114,6 +118,39 @@ void Visualization::feature_id_slot(int feature)
 }
 
 void
+Visualization::filter_n_downsampling()
+{
+	////VoxelGrid Filter Downsampling
+	//record->statusUpdate("Downsampling...");
+	//pcl::VoxelGrid<PointT> grid;
+	//const float leaf = 0.005f;
+	//grid.setLeafSize(leaf, leaf, leaf);
+	//grid.setInputCloud(cloud);
+	//grid.filter(*cloud);
+
+	//StatisticalOutlierRemoval Filter
+	record->statusUpdate("Remove Statistical Outlier...");
+	pcl::StatisticalOutlierRemoval<PointT> sor;
+	sor.setInputCloud(cloud);
+	sor.setMeanK(normal_level);
+	sor.setStddevMulThresh(search_radius);
+	sor.filter(*cloud);
+	record->statusUpdate("Done");
+
+	////RadiusOutlierRemoval Filter
+	//record->statusUpdate("Remove Radius Outlier...");
+	//pcl::RadiusOutlierRemoval<PointT> ror;
+	//ror.setInputCloud(cloud);
+	//ror.setRadiusSearch(search_radius);
+	//ror.setMinNeighborsInRadius(normal_level);
+	//ror.filter(*cloud);
+	//record->statusUpdate("Done");
+
+	pcl::visualization::PointCloudColorHandlerCustom<PointT> rgb(cloud, 20, 180, 20);
+	viewer->updatePointCloud(cloud, rgb, "sample cloud");
+}
+
+void
 Visualization::computeKdtree()
 {
 	record->statusUpdate("compute Kdtree...");
@@ -122,35 +159,64 @@ Visualization::computeKdtree()
 	srand(time(NULL));
 	pcl::KdTreeFLANN<PointT> kdtree;
 	kdtree.setInputCloud(cloud);
+	int size = cloud->points.size();
 	PointT searchPoint;
-	searchPoint.x = 1024.0f * rand() / (RAND_MAX + 1.0f);
-	searchPoint.y = 1024.0f * rand() / (RAND_MAX + 1.0f);
-	searchPoint.z = 1024.0f * rand() / (RAND_MAX + 1.0f);
+	std::vector<int> indices;
+	std::vector<float> meanDistance;
+	//searchPoint = cloud->points.at(cloud->points.size() * rand() / (RAND_MAX + 1));
 
-	int k = 10;
+	//viewer->addSphere(searchPoint, 1, 1, 0.2, 0.2, "search Point");
+
+	int k = normal_level;
 	std::vector<int> pointIdxNKNSearch(k);
 	std::vector<float> pointNKNSquaredDistance(k);
-	std::stringstream ss;
-	ss  << "k nearest neighbor search at (" << searchPoint.x
-		<< " " << searchPoint.y
-		<< " " << searchPoint.z
-		<< ") with K = " << k << std::endl;
+	//std::stringstream ss;
+	//ss  << "k nearest neighbor search at (" << searchPoint.x
+	//	<< " " << searchPoint.y
+	//	<< " " << searchPoint.z
+	//	<< ") with K = " << k << std::endl;
 
-	record->infoRec(QString::fromStdString(ss.str()));
+	//record->infoRec(QString::fromStdString(ss.str()));
 
-	if (kdtree.nearestKSearch(searchPoint, k, pointIdxNKNSearch, pointNKNSquaredDistance) > 0)
+	//if (kdtree.nearestKSearch(searchPoint, k, pointIdxNKNSearch, pointNKNSquaredDistance) > 0)
+	//{
+	//	for (size_t i = 0; i < pointIdxNKNSearch.size(); ++i)
+	//	{
+	//		std::stringstream ss;
+
+	//		ss  << " " << cloud->points[pointIdxNKNSearch[i]].x
+	//			<< " " << cloud->points[pointIdxNKNSearch[i]].y
+	//			<< " " << cloud->points[pointIdxNKNSearch[i]].z
+	//			<< " (squared distance: " << pointNKNSquaredDistance[i] << ")" << std::endl;
+	//		record->infoRec(QString::fromStdString(ss.str()));
+	//	}
+	//}
+	record->progressBarUpdate(0);
+	for (int i = 0; i < size; i++)
 	{
-		for (size_t i = 0; i < pointIdxNKNSearch.size(); ++i)
+		searchPoint = cloud->points.at(i);
+		if (kdtree.nearestKSearch(searchPoint, k, pointIdxNKNSearch, pointNKNSquaredDistance) > 0)
 		{
-			std::stringstream ss;
-
-			ss  << " " << cloud->points[pointIdxNKNSearch[i]].x
-				<< " " << cloud->points[pointIdxNKNSearch[i]].y
-				<< " " << cloud->points[pointIdxNKNSearch[i]].z
-				<< " (squared distance: " << pointNKNSquaredDistance[i] << ")" << std::endl;
-			record->infoRec(QString::fromStdString(ss.str()));
+			float distance = 0.0;
+			for (int j = 0; j < k; j++)
+			{
+				distance = distance + pointNKNSquaredDistance.at(j);
+			}
+			meanDistance.push_back(distance / k);
+			indices.push_back(i);
+			record->progressBarUpdate(int(100*i/size));
 		}
 	}
+	QFile file("kdtree_data.txt");
+	if (!file.open(QIODevice::Truncate | QFile::ReadWrite | QFile::Text))
+		emit record->statusUpdate("can't open kdtree_data.txt");
+	QTextStream in(&file);	
+	for (int i = 0; i < indices.size(); i++)
+	{
+		in << indices.at(i) << " " << meanDistance.at(i) << endl;
+	}
+	file.close();
+	record->progressBarUpdate(100);
 	record->statusUpdate("completed in " + QString::number(pcl_time.toc()) + "ms;");
 }
 
@@ -174,8 +240,26 @@ Visualization::computeCentroid()
 	center.y = xyz_centroid(1);
 	center.z = xyz_centroid(2);
 
-	viewer->addSphere(center, 0.1, 1, 0.2, 0.2, "centroid");
+	//viewer->addSphere(center, 1, 1, 0.2, 0.2, "centroid");
 	record->statusUpdate("completed in " + QString::number(pcl_time.toc()) + "ms;");
+
+	//transform point cloud
+	Eigen::Transform<float, 3, Eigen::Affine> transformation_matrix;
+	//Eigen::Matrix4d transformation_matrix = Eigen::Matrix4d::Identity();
+	transformation_matrix(0, 0) = 1;
+	transformation_matrix(1, 1) = 1;
+	transformation_matrix(2, 2) = 1;
+	transformation_matrix(0, 3) = - center.x;
+	transformation_matrix(1, 3) = - center.y;
+	transformation_matrix(2, 3) = - center.z;
+	transformation_matrix(3, 3) = 1;
+	pcl::transformPointCloud(*cloud, *cloud_out, transformation_matrix);
+
+	pcl::visualization::PointCloudColorHandlerCustom<PointT> rgb(cloud, 20, 90, 90);
+	//viewer->addPointCloud(cloud_out, rgb, "transformed cloud");
+	*cloud = *cloud_out;
+	viewer->updatePointCloud(cloud, rgb, "sample cloud");
+	viewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, "sample cloud");
 }
 
 void Visualization::computeNormals()
