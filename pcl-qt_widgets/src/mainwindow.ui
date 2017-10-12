@@ -287,7 +287,7 @@ Estimate</string>
      <rect>
       <x>20</x>
       <y>200</y>
-      <width>326</width>
+      <width>407</width>
       <height>76</height>
      </rect>
     </property>
@@ -370,8 +370,29 @@ Estimate</string>
        </property>
       </widget>
      </item>
+     <item>
+      <widget class="QPushButton" name="pushButton_10">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Minimum" vsizetype="Expanding">
+         <horstretch>0</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
+       <property name="text">
+        <string>Compute
+EGI</string>
+       </property>
+      </widget>
+     </item>
     </layout>
    </widget>
+   <zorder>gridLayoutWidget</zorder>
+   <zorder>gridLayoutWidget_2</zorder>
+   <zorder>verticalLayoutWidget</zorder>
+   <zorder>horizontalLayoutWidget_2</zorder>
+   <zorder>pushButton_4</zorder>
+   <zorder>horizontalLayoutWidget</zorder>
+   <zorder>pushButton_8</zorder>
   </widget>
   <widget class="QMenuBar" name="menuBar">
    <property name="geometry">

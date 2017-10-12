@@ -68,6 +68,7 @@ private slots:
 	void onComputeNormalsSlot();
 	void onComputeFPFHSlot();
 	void onFilterNDownsampling();
+	void onComputeEGI();
 };
 
 #endif // MAINWINDOW_H

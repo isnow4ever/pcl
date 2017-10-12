@@ -95,6 +95,9 @@ Visualization::preview(QString filename)
 		case 5:
 			filter_n_downsampling();
 			break;
+		case 6:
+			computeEGI();
+			break;
 		default:
 			break;
 		}
@@ -112,12 +115,13 @@ Visualization::OnStarted()
 	emit finished();
 }
 
-void Visualization::feature_id_slot(int feature)
+void
+Visualization::feature_id_slot(int feature)
 {
 	feature_id = feature;
 }
 
-void
+bool
 Visualization::filter_n_downsampling()
 {
 	////VoxelGrid Filter Downsampling
@@ -148,9 +152,11 @@ Visualization::filter_n_downsampling()
 
 	pcl::visualization::PointCloudColorHandlerCustom<PointT> rgb(cloud, 20, 180, 20);
 	viewer->updatePointCloud(cloud, rgb, "sample cloud");
+
+	return true;
 }
 
-void
+bool
 Visualization::computeKdtree()
 {
 	record->statusUpdate("compute Kdtree...");
@@ -218,9 +224,11 @@ Visualization::computeKdtree()
 	file.close();
 	record->progressBarUpdate(100);
 	record->statusUpdate("completed in " + QString::number(pcl_time.toc()) + "ms;");
+
+	return true;
 }
 
-void
+bool
 Visualization::computeCentroid()
 {
 	record->infoRec("compute Centroid...");
@@ -260,9 +268,12 @@ Visualization::computeCentroid()
 	*cloud = *cloud_out;
 	viewer->updatePointCloud(cloud, rgb, "sample cloud");
 	viewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, "sample cloud");
+
+	return true;
 }
 
-void Visualization::computeNormals()
+bool
+Visualization::computeNormals()
 {
 	record->statusUpdate("compute Normals...");
 	pcl_time.tic();
@@ -289,10 +300,29 @@ void Visualization::computeNormals()
 	// Compute the 3x3 covariance matrix
 	//Eigen::Matrix3f covariance_matrix;
 	//pcl::computeCovarianceMatrix(cloud, xyz_centroid, covariance_matrix);
+
+	QFile file("normals_data.txt");
+	if (!file.open(QIODevice::Truncate | QFile::ReadWrite | QFile::Text))
+		emit record->statusUpdate("can't open normals_data.txt");
+	QTextStream in(&file);
+	int size = cloud_normals->size();
+	for (int i = 0; i < size; i++)
+	{
+		in << cloud_normals->at(i).normal_x << " "
+			<< cloud_normals->at(i).normal_y << " "
+			<< cloud_normals->at(i).normal_z << " "
+			<< cloud_normals->at(i).curvature << endl;
+		record->progressBarUpdate(int(100 * i / size));
+	}
+	file.close();
+	record->progressBarUpdate(100);
 	record->statusUpdate("completed in " + QString::number(pcl_time.toc()) + "ms;");
+
+	return true;
 }
 
-void Visualization::computeFPFH()
+bool
+Visualization::computeFPFH()
 {
 	record->statusUpdate("compute FPFH...");
 	pcl_time.tic();
@@ -317,4 +347,70 @@ void Visualization::computeFPFH()
 	plotter.addFeatureHistogram(*fpfhs, 33);
 
 	plotter.plot();
+
+	return true;
+}
+
+bool
+Visualization::computeEGI()
+{
+	if (cloud_normals->size() == 0)
+	{
+		record->statusUpdate("no cloud normals!");
+		return false;
+	}
+	int size = cloud_normals->size();
+
+	PointCloudT::Ptr cloud_EGI;
+	PointCloudN::Ptr normals_EGI;
+
+	cloud_EGI.reset(new PointCloudT);
+	normals_EGI.reset(new PointCloudN);
+
+	boost::shared_ptr<pcl::visualization::PCLVisualizer> EGI_viewer;
+	EGI_viewer.reset(new pcl::visualization::PCLVisualizer("EGI", true));
+
+	cloud_EGI->resize(size);
+	record->statusUpdate(QString::number(size));
+	for (int i = 0; i < size; ++i)
+	{
+		cloud_EGI->points[i].x = cloud_normals->at(i).normal_x;
+		cloud_EGI->points[i].y = cloud_normals->at(i).normal_y;
+		cloud_EGI->points[i].z = cloud_normals->at(i).normal_z;
+		record->progressBarUpdate(int(100 * i / size));
+	}
+
+	//pcl::NormalEstimation<pcl::PointXYZ, pcl::Normal> ne;
+	//ne.setInputCloud(cloud_EGI);
+
+	//// Create an empty kdtree representation, and pass it to the normal estimation object.
+	//// Its content will be filled inside the object, based on the given input dataset (as no other search surface is given).
+	//pcl::search::KdTree<pcl::PointXYZ>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZ>());
+	//ne.setSearchMethod(tree);
+
+	//// Output datasets
+	////PointCloudN::Ptr cloud_normals(new PointCloudN);
+
+	//// Use all neighbors in a sphere of radius 3cm
+	//ne.setRadiusSearch(0.03);
+	//ne.setViewPoint(3, 3, 3);
+	//// Compute the features
+	//ne.compute(*normals_EGI);
+
+	//EGI_viewer->addPointCloudNormals<pcl::PointXYZ, pcl::Normal>(cloud_EGI, normals_EGI, 100, 0.2);
+	EGI_viewer->setBackgroundColor(0, 0, 0);
+	pcl::visualization::PointCloudColorHandlerCustom<PointT> rgb(cloud_EGI, 220, 220, 220);
+	EGI_viewer->addPointCloud(cloud_EGI, rgb, "EGI cloud");
+	EGI_viewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, "EGI cloud");
+	EGI_viewer->addCoordinateSystem(1.0);
+	EGI_viewer->initCameraParameters();
+
+	while (!EGI_viewer->wasStopped())
+	{
+		EGI_viewer->spinOnce(100);
+		boost::this_thread::sleep(boost::posix_time::microseconds(100000));
+	}
+	record->progressBarUpdate(100);
+
+	return true;
 }

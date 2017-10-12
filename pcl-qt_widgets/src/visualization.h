@@ -43,20 +43,23 @@ public:
 
 	int feature_id;
 
-	void filter_n_downsampling();
+	bool filter_n_downsampling();
 
 	//bool kdtreeFlag;
-	void computeKdtree();
+	bool computeKdtree();
 
 	//bool centroidFlag;
-	void computeCentroid();
+	bool computeCentroid();
 
 	double search_radius;
 	int normal_level;
 	double normal_scale;
-	void computeNormals();
+	bool computeNormals();
 
-	void computeFPFH();
+	bool computeFPFH();
+
+	bool computeEGI();
+
 
 signals:
 	void finished();
