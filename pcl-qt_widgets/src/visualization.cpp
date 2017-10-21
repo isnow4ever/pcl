@@ -231,7 +231,7 @@ Visualization::computeKdtree()
 bool
 Visualization::computeCentroid()
 {
-	record->infoRec("compute Centroid...");
+	record->statusUpdate("compute Centroid...");
 	pcl_time.tic();
 	Eigen::Vector4f xyz_centroid;
 	pcl::compute3DCentroid(*cloud, xyz_centroid);
@@ -252,8 +252,8 @@ Visualization::computeCentroid()
 	record->statusUpdate("completed in " + QString::number(pcl_time.toc()) + "ms;");
 
 	//transform point cloud
-	Eigen::Transform<float, 3, Eigen::Affine> transformation_matrix;
-	//Eigen::Matrix4d transformation_matrix = Eigen::Matrix4d::Identity();
+	//Eigen::Transform<float, 3, Eigen::Affine> transformation_matrix;
+	Eigen::Matrix4f transformation_matrix = Eigen::Matrix4f::Identity();
 	transformation_matrix(0, 0) = 1;
 	transformation_matrix(1, 1) = 1;
 	transformation_matrix(2, 2) = 1;
@@ -261,7 +261,7 @@ Visualization::computeCentroid()
 	transformation_matrix(1, 3) = - center.y;
 	transformation_matrix(2, 3) = - center.z;
 	transformation_matrix(3, 3) = 1;
-	pcl::transformPointCloud(*cloud, *cloud_out, transformation_matrix);
+	pcl::transformPointCloud(*cloud, *cloud_out, transformation_matrix, true);
 
 	pcl::visualization::PointCloudColorHandlerCustom<PointT> rgb(cloud, 20, 90, 90);
 	//viewer->addPointCloud(cloud_out, rgb, "transformed cloud");
