@@ -1,6 +1,8 @@
 #include "visualization.h"
 #include <Eigen/Geometry> 
 
+#define ICO_X .525731112119133606
+#define ICO_Z .850650808352039932
 
 Visualization::Visualization(QString filename)
 	:filename(filename)
@@ -379,6 +381,59 @@ Visualization::computeEGI()
 		cloud_EGI->points[i].z = cloud_normals->at(i).normal_z;
 		record->progressBarUpdate(int(100 * i / size));
 	}
+
+	/*************************Create Icosahedron****************************/
+	static float vdata[12][3] = {
+		{ -ICO_X, 0.0, ICO_Z},{ ICO_X, 0.0, ICO_Z },{ -ICO_X, 0.0, -ICO_Z },{ ICO_X, 0.0, -ICO_Z },
+		{ 0.0, ICO_Z, ICO_X},{ 0.0, ICO_Z, -ICO_X },{ 0.0, -ICO_Z, ICO_X },{ 0.0, -ICO_Z, -ICO_X },
+		{ ICO_Z, ICO_X, 0.0},{ -ICO_Z, ICO_X, 0.0 },{ ICO_Z, -ICO_X, 0.0 },{ -ICO_Z, -ICO_X, 0.0 }
+	};
+
+	static unsigned int tindices[20][3] = {
+		{ 1,4,0 },{ 4,9,0 },{ 4,5,9 },{ 8,5,4 },{ 1,8,4 },
+		{ 1,10,8 },{ 10,3,8 },{ 8,3,5 },{ 3,2,5 },{ 3,7,2 },
+		{ 3,10,7 },{ 10,6,7 },{ 6,11,7 },{ 6,0,11 },{ 6,1,0 },
+		{ 10,1,6 },{ 11,0,9 },{ 2,11,9 },{ 5,2,9 },{ 11,2,7 }
+	};
+
+	//Mapping normals to Icosahedron
+	QFile file("EGI_intensity_data.txt");
+	if (!file.open(QIODevice::Truncate | QFile::ReadWrite | QFile::Text))
+		emit record->statusUpdate("can't open EGI_intensity_data.txt");
+	QTextStream in(&file);
+
+	unsigned int intensity_EGI_ICO[20] = { 0 };
+
+	for (int i = 0; i < 20; ++i)
+	{
+		Eigen::Vector3f lamda;
+		Eigen::Vector3f normal_vector;
+		Eigen::Matrix3f indice_matrix;
+		indice_matrix << vdata[tindices[i][0]][0], vdata[tindices[i][1]][0], vdata[tindices[i][2]][0],
+			vdata[tindices[i][0]][1], vdata[tindices[i][1]][1], vdata[tindices[i][2]][1],
+			vdata[tindices[i][0]][2], vdata[tindices[i][1]][2], vdata[tindices[i][2]][2];
+		for (int j = 0; j < size; ++j)
+		{
+			normal_vector << cloud_EGI->points[j].x, cloud_EGI->points[j].y, cloud_EGI->points[j].z;
+			lamda = indice_matrix.inverse() * normal_vector;
+			if ((lamda[0] > 0) && (lamda[1] > 0) && (lamda[2] > 0))
+			{
+				intensity_EGI_ICO[i]++;
+
+				//in << lamda[0] << " " << lamda[1] << " " << lamda[2] << endl;
+				record->progressBarUpdate(int(100 * (i * size + j) / (20 * size)));
+			}
+		}
+		in << intensity_EGI_ICO[i] << endl;
+	}
+	file.close();
+
+	record->progressBarUpdate(100);
+
+	//Extend Icosahedron
+
+
+
 
 	//pcl::NormalEstimation<pcl::PointXYZ, pcl::Normal> ne;
 	//ne.setInputCloud(cloud_EGI);
