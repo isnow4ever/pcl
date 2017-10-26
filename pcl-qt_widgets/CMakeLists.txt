@@ -12,11 +12,13 @@ add_definitions     (${PCL_DEFINITIONS})
 set  (project_SOURCES src/main.cpp
 					  src/mainwindow.cpp
 					  src/ICPReg.cpp
+					  src/EGIReg.cpp
 					  src/visualization.cpp
 					  src/record.cpp)
 set  (project_HEADERS src/res.h
 	                  src/mainwindow.h
 					  src/ICPReg.h
+					  src/EGIReg.h
 					  src/visualization.h
 					  src/record.h)
 set  (project_FORMS   src/mainwindow.ui)
