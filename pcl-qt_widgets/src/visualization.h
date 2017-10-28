@@ -5,8 +5,6 @@
 #include <QObject>
 #include <QThread>
 
-#include <boost/thread/thread.hpp>
-#include <pcl/common/common_headers.h>
 #include <pcl/visualization/pcl_visualizer.h>
 #include <pcl/io/ply_io.h>
 #include <pcl/io/pcd_io.h>
@@ -15,7 +13,7 @@
 #include <pcl/features/normal_3d_omp.h>
 #include <pcl/features/fpfh.h>
 #include <pcl/visualization/histogram_visualizer.h>
-#include<pcl/visualization/pcl_plotter.h>
+#include <pcl/visualization/pcl_plotter.h>
 
 #include <iostream>
 #include <string>

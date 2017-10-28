@@ -1,4 +1,6 @@
 #pragma once
+#include <boost/thread/thread.hpp>
+#include <pcl/common/common_headers.h>
 #include <pcl/point_types.h>
 #include <pcl/io/ply_io.h>
 #include <pcl/registration/icp.h>

@@ -31,16 +31,19 @@ public:
 	//functions
 	void params_initial();
 
-	Eigen::Vector3f translationEstimate();
+	Eigen::Vector4f translationEstimate();
 	Eigen::Matrix3f rotationEstimate();
 	
 	void normalSphereCompute(PointCloudT::Ptr cloud_in, PointCloudT::Ptr cloud_out);
 	void mapToIcosahedron(PointCloudT::Ptr normal_sphere, std::vector<double> intensity, int EGI_level);
+	void subdivide(Eigen::Vector3d v1, Eigen::Vector3d v2, Eigen::Vector3d v3, long depth);
 
-	void search(Eigen::Matrix4f transformation);
+	void search(Eigen::Matrix4f &transformation);
 
 	//Records
+	Record *record;
 	void recordToFile(QString filename, QString content);
+	pcl::console::TicToc pcl_time;
 
 	//input & output
 	void setNormalSearchRadius(double);
@@ -57,11 +60,15 @@ private:
 	PointCloudT::Ptr model;
 	PointCloudT::Ptr data;
 
-	PointCloudT::Ptr model_normal_sphere;
-	PointCloudT::Ptr data_normals_sphere;
+	PointCloudT::Ptr model_trans;
+	PointCloudT::Ptr data_trans;
 
-	std::vector< std::vector<int> > face_indices;
-	std::vector< std::vector<double> > vertex_indices;
+	PointCloudT::Ptr model_normal_sphere;
+	PointCloudT::Ptr data_normal_sphere;
+
+	std::vector< std::vector<Eigen::Vector3d> > triangle_vectors;
+	std::vector<Eigen::Vector3i> face_indices;
+	std::vector<Eigen::Vector3d> vertex_indices;
 
 	//normal estimate params
 	double search_radius;
@@ -82,7 +89,7 @@ private:
 	double beta;
 	double gama;
 
-	Eigen::Vector3f translation;
+	Eigen::Vector4f translation;
 	Eigen::Matrix3f rotation;
 	Eigen::Matrix4f transformation;
 
