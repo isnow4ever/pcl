@@ -14,6 +14,10 @@
 #include <Eigen/Geometry> 
 
 #include <QMessageBox>
+#include <iostream>
+#include "time.h"
+
+#define PI 3.1415926535897932
 
 using namespace pcl;
 
