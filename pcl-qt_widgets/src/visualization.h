@@ -23,21 +23,23 @@ class Visualization : public QObject
 	Q_OBJECT
 
 public:
-	Visualization(QString);
+	Visualization(QString, QString);
 	virtual ~Visualization();
 
 	Record *record;
 
 	QString filename;
+	QString filename_data;
 
 	PointCloudT::Ptr cloud;
 	PointCloudT::Ptr cloud_out;
 	PointCloudN::Ptr cloud_normals;
+	PointCloudT::Ptr cloud_data;
 
 	boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer;
 	pcl::console::TicToc pcl_time;
 
-	void preview(QString filename);
+	void preview(QString filename, QString filename_data);
 
 	int feature_id;
 

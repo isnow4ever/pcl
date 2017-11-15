@@ -1,16 +1,18 @@
 #include "visualization.h"
+#include "EGIReg.h"
 #include <Eigen/Geometry> 
 
 #define ICO_X .525731112119133606
 #define ICO_Z .850650808352039932
 
-Visualization::Visualization(QString filename)
-	:filename(filename)
+Visualization::Visualization(QString filename, QString filename_data)
+	:filename(filename), filename_data(filename_data)
 {
 	record = new Record();
 	cloud.reset(new PointCloudT);
 	cloud_out.reset(new PointCloudT);
 	cloud_normals.reset(new PointCloudN);
+	cloud_data.reset(new PointCloudT);
 	viewer.reset(new pcl::visualization::PCLVisualizer("preview", false));
 
 	//kdtreeFlag = false;
@@ -29,11 +31,10 @@ Visualization::~Visualization()
 }
 
 void
-Visualization::preview(QString filename)
+Visualization::preview(QString filename, QString filename_data)
 {
-	viewer.reset(new pcl::visualization::PCLVisualizer("preview", true));
-
 	std::string file_name = filename.toStdString();
+	std::string file_name_data = filename_data.toStdString();
 
 	pcl_time.tic();
 	record->statusUpdate("Loading model...");
@@ -42,37 +43,59 @@ Visualization::preview(QString filename)
 	{
 		if (!pcl::io::loadPCDFile(file_name, *cloud))
 		{
-			//QMessageBox msgBox;
-			//msgBox.setText("Couldn't read file.");
-			//int ret = msgBox.exec();
+			record->statusUpdate("Cannot open pcd file!");
 		}
-			
-
-	}		
-			
+	}			
 	else if (filename.endsWith(".ply"))
 	{
 		if (!pcl::io::loadPLYFile(file_name, *cloud))
 		{
-			//QMessageBox msgBox;
-			//msgBox.setText("Couldn't read file.");
-			//int ret = msgBox.exec();
+			record->statusUpdate("Cannot open ply file!");
 		}
 	}
+	if (filename_data.endsWith(".pcd"))
+	{
+		if (!pcl::io::loadPCDFile(file_name_data, *cloud_data))
+		{
+			record->statusUpdate("Cannot open pcd file!");
+		}
+	}
+	else if (filename_data.endsWith(".ply"))
+	{
+		if (!pcl::io::loadPLYFile(file_name_data, *cloud_data))
+		{
+			record->statusUpdate("Cannot open ply file!");
+		}
+	}
+
 	//display number of points
-	record->info = QString("data size: "
+	record->info = QString("model size: "
 		+ QString::number(cloud->points.size())
+		+ "data size: "
+		+ QString::number(cloud_data->points.size())
 		+ "; duration: "
 		+ QString::number(pcl_time.toc())
 		+ "ms;");
 	record->infoRec(record->info);
 	record->statusUpdate(record->info);
 
-	viewer->setBackgroundColor(0, 0, 0);
-	pcl::visualization::PointCloudColorHandlerCustom<PointT> rgb(cloud, 20, 180, 20);
-	//pcl::visualization::PointCloudColorHandlerRGBField<PointC> rgb(cloud);
-	viewer->addPointCloud(cloud, rgb, "sample cloud");
-	viewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, "sample cloud");
+	viewer.reset(new pcl::visualization::PCLVisualizer("preview", true));
+	// Create two verticaly separated viewports
+	int v1(1);
+	int v2(2);
+	viewer->createViewPort(0.0, 0.0, 0.5, 1.0, v1);
+	viewer->createViewPort(0.5, 0.0, 1.0, 1.0, v2);
+
+	viewer->setBackgroundColor(0, 0, 0, v1);
+	viewer->setBackgroundColor(0.1, 0.1, 0.1, v2);
+	pcl::visualization::PointCloudColorHandlerCustom<PointT> green(cloud, 20, 180, 20);
+	viewer->addPointCloud(cloud, green, "model cloud",v1);
+	
+	pcl::visualization::PointCloudColorHandlerCustom<PointT> red(cloud_data, 180, 20, 20);
+	viewer->addPointCloud(cloud_data, red, "data cloud", v2);
+
+	viewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, "model cloud");
+	viewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, "data cloud");
 	viewer->addCoordinateSystem(10.0);
 	viewer->initCameraParameters();
 
@@ -113,7 +136,7 @@ Visualization::preview(QString filename)
 void
 Visualization::OnStarted()
 {
-	this->preview(filename);
+	this->preview(filename, filename_data);
 	emit finished();
 }
 
@@ -153,7 +176,7 @@ Visualization::filter_n_downsampling()
 	//record->statusUpdate("Done");
 
 	pcl::visualization::PointCloudColorHandlerCustom<PointT> rgb(cloud, 20, 180, 20);
-	viewer->updatePointCloud(cloud, rgb, "sample cloud");
+	viewer->updatePointCloud(cloud, rgb, "model cloud");
 
 	return true;
 }
@@ -237,39 +260,43 @@ Visualization::computeCentroid()
 	pcl_time.tic();
 	Eigen::Vector4f xyz_centroid;
 	pcl::compute3DCentroid(*cloud, xyz_centroid);
-	std::stringstream ss;
-	for (size_t i = 0; i < 4; i++)
-	{
-		ss << " " << xyz_centroid(i);
-	}
-	ss << std::endl;
-	record->infoRec(QString::fromStdString(ss.str()));
-
-	PointT center;
-	center.x = xyz_centroid(0);
-	center.y = xyz_centroid(1);
-	center.z = xyz_centroid(2);
-
-	//viewer->addSphere(center, 1, 1, 0.2, 0.2, "centroid");
-	record->statusUpdate("completed in " + QString::number(pcl_time.toc()) + "ms;");
-
+	//std::stringstream ss;
+	//for (size_t i = 0; i < 4; i++)
+	//{
+	//	ss << " " << xyz_centroid(i);
+	//}
+	//ss << std::endl;
+	//record->infoRec(QString::fromStdString(ss.str()));
+	
 	//transform point cloud
 	//Eigen::Transform<float, 3, Eigen::Affine> transformation_matrix;
 	Eigen::Matrix4f transformation_matrix = Eigen::Matrix4f::Identity();
 	transformation_matrix(0, 0) = 1;
 	transformation_matrix(1, 1) = 1;
 	transformation_matrix(2, 2) = 1;
-	transformation_matrix(0, 3) = - center.x;
-	transformation_matrix(1, 3) = - center.y;
-	transformation_matrix(2, 3) = - center.z;
+	transformation_matrix(0, 3) = -xyz_centroid(0);
+	transformation_matrix(1, 3) = -xyz_centroid(1);
+	transformation_matrix(2, 3) = -xyz_centroid(2);
 	transformation_matrix(3, 3) = 1;
 	pcl::transformPointCloud(*cloud, *cloud_out, transformation_matrix, true);
-
-	pcl::visualization::PointCloudColorHandlerCustom<PointT> rgb(cloud, 20, 90, 90);
-	//viewer->addPointCloud(cloud_out, rgb, "transformed cloud");
 	*cloud = *cloud_out;
-	viewer->updatePointCloud(cloud, rgb, "sample cloud");
-	viewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, "sample cloud");
+
+	pcl::visualization::PointCloudColorHandlerCustom<PointT> green(cloud, 20, 180, 20);
+	viewer->updatePointCloud(cloud, green, "model cloud");
+
+	pcl::compute3DCentroid(*cloud_data, xyz_centroid);
+
+	record->statusUpdate("completed in " + QString::number(pcl_time.toc()) + "ms;");
+
+	//transform point cloud
+	transformation_matrix(0, 3) = -xyz_centroid(0);
+	transformation_matrix(1, 3) = -xyz_centroid(1);
+	transformation_matrix(2, 3) = -xyz_centroid(2);
+	pcl::transformPointCloud(*cloud_data, *cloud_out, transformation_matrix, true);
+	*cloud_data = *cloud_out;
+
+	pcl::visualization::PointCloudColorHandlerCustom<PointT> red(cloud_data, 180, 20, 20);
+	viewer->updatePointCloud(cloud_data, red, "data cloud");
 
 	return true;
 }
@@ -298,26 +325,31 @@ Visualization::computeNormals()
 	// Compute the features
 	ne.compute(*cloud_normals);
 
-	viewer->addPointCloudNormals<pcl::PointXYZ, pcl::Normal>(cloud, cloud_normals, normal_level, normal_scale);
+	viewer->addPointCloudNormals<pcl::PointXYZ, pcl::Normal>(cloud, cloud_normals, normal_level, normal_scale, "model normals", 1);
 	// Compute the 3x3 covariance matrix
 	//Eigen::Matrix3f covariance_matrix;
 	//pcl::computeCovarianceMatrix(cloud, xyz_centroid, covariance_matrix);
+	
+	PointCloudN::Ptr cloud_data_normals(new PointCloudN);
+	ne.setInputCloud(cloud_data);
+	ne.compute(*cloud_data_normals);
+	viewer->addPointCloudNormals<pcl::PointXYZ, pcl::Normal>(cloud_data, cloud_data_normals, normal_level, normal_scale,"data normals", 2);
 
-	QFile file("normals_data.txt");
-	if (!file.open(QIODevice::Truncate | QFile::ReadWrite | QFile::Text))
-		emit record->statusUpdate("can't open normals_data.txt");
-	QTextStream in(&file);
-	int size = cloud_normals->size();
-	for (int i = 0; i < size; i++)
-	{
-		in << cloud_normals->at(i).normal_x << " "
-			<< cloud_normals->at(i).normal_y << " "
-			<< cloud_normals->at(i).normal_z << " "
-			<< cloud_normals->at(i).curvature << endl;
-		record->progressBarUpdate(int(100 * i / size));
-	}
-	file.close();
-	record->progressBarUpdate(100);
+	//QFile file("normals_data.txt");
+	//if (!file.open(QIODevice::Truncate | QFile::ReadWrite | QFile::Text))
+	//	emit record->statusUpdate("can't open normals_data.txt");
+	//QTextStream in(&file);
+	//int size = cloud_normals->size();
+	//for (int i = 0; i < size; i++)
+	//{
+	//	in << cloud_normals->at(i).normal_x << " "
+	//		<< cloud_normals->at(i).normal_y << " "
+	//		<< cloud_normals->at(i).normal_z << " "
+	//		<< cloud_normals->at(i).curvature << endl;
+	//	record->progressBarUpdate(int(100 * i / size));
+	//}
+	//file.close();
+	//record->progressBarUpdate(100);
 	record->statusUpdate("completed in " + QString::number(pcl_time.toc()) + "ms;");
 
 	return true;
@@ -356,79 +388,89 @@ Visualization::computeFPFH()
 bool
 Visualization::computeEGI()
 {
-	if (cloud_normals->size() == 0)
-	{
-		record->statusUpdate("no cloud normals!");
-		return false;
-	}
-	int size = cloud_normals->size();
+	//if (cloud_normals->size() == 0)
+	//{
+	//	record->statusUpdate("no cloud normals!");
+	//	return false;
+	//}
+	//int size = cloud_normals->size();
 
-	PointCloudT::Ptr cloud_EGI;
-	PointCloudN::Ptr normals_EGI;
+	//PointCloudT::Ptr cloud_EGI;
+	//PointCloudN::Ptr normals_EGI;
 
-	cloud_EGI.reset(new PointCloudT);
-	normals_EGI.reset(new PointCloudN);
+	//cloud_EGI.reset(new PointCloudT);
+	//normals_EGI.reset(new PointCloudN);
 
-	boost::shared_ptr<pcl::visualization::PCLVisualizer> EGI_viewer;
-	EGI_viewer.reset(new pcl::visualization::PCLVisualizer("EGI", true));
+	//boost::shared_ptr<pcl::visualization::PCLVisualizer> EGI_viewer;
+	//EGI_viewer.reset(new pcl::visualization::PCLVisualizer("EGI", true));
 
-	cloud_EGI->resize(size);
-	record->statusUpdate(QString::number(size));
-	for (int i = 0; i < size; ++i)
-	{
-		cloud_EGI->points[i].x = cloud_normals->at(i).normal_x;
-		cloud_EGI->points[i].y = cloud_normals->at(i).normal_y;
-		cloud_EGI->points[i].z = cloud_normals->at(i).normal_z;
-		record->progressBarUpdate(int(100 * i / size));
-	}
+	//cloud_EGI->resize(size);
+	//record->statusUpdate(QString::number(size));
+	//for (int i = 0; i < size; ++i)
+	//{
+	//	cloud_EGI->points[i].x = cloud_normals->at(i).normal_x;
+	//	cloud_EGI->points[i].y = cloud_normals->at(i).normal_y;
+	//	cloud_EGI->points[i].z = cloud_normals->at(i).normal_z;
+	//	record->progressBarUpdate(int(100 * i / size));
+	//}
+	Eigen::Matrix4d tf;
+	EGIReg egireg(cloud, cloud_data);
+	egireg.search(tf);
 
-	/*************************Create Icosahedron****************************/
-	static float vdata[12][3] = {
-		{ -ICO_X, 0.0, ICO_Z},{ ICO_X, 0.0, ICO_Z },{ -ICO_X, 0.0, -ICO_Z },{ ICO_X, 0.0, -ICO_Z },
-		{ 0.0, ICO_Z, ICO_X},{ 0.0, ICO_Z, -ICO_X },{ 0.0, -ICO_Z, ICO_X },{ 0.0, -ICO_Z, -ICO_X },
-		{ ICO_Z, ICO_X, 0.0},{ -ICO_Z, ICO_X, 0.0 },{ ICO_Z, -ICO_X, 0.0 },{ -ICO_Z, -ICO_X, 0.0 }
-	};
+	printf("Rotation matrix :\n");
+	printf("    | %6.3f %6.3f %6.3f | \n", tf(0, 0), tf(0, 1), tf(0, 2));
+	printf("R = | %6.3f %6.3f %6.3f | \n", tf(1, 0), tf(1, 1), tf(1, 2));
+	printf("    | %6.3f %6.3f %6.3f | \n", tf(2, 0), tf(2, 1), tf(2, 2));
+	printf("Translation vector :\n");
+	printf("t = < %6.3f, %6.3f, %6.3f >\n\n", tf(0, 3), tf(1, 3), tf(2, 3));
 
-	static unsigned int tindices[20][3] = {
-		{ 1,4,0 },{ 4,9,0 },{ 4,5,9 },{ 8,5,4 },{ 1,8,4 },
-		{ 1,10,8 },{ 10,3,8 },{ 8,3,5 },{ 3,2,5 },{ 3,7,2 },
-		{ 3,10,7 },{ 10,6,7 },{ 6,11,7 },{ 6,0,11 },{ 6,1,0 },
-		{ 10,1,6 },{ 11,0,9 },{ 2,11,9 },{ 5,2,9 },{ 11,2,7 }
-	};
+	///*************************Create Icosahedron****************************/
+	//static float vdata[12][3] = {
+	//	{ -ICO_X, 0.0, ICO_Z},{ ICO_X, 0.0, ICO_Z },{ -ICO_X, 0.0, -ICO_Z },{ ICO_X, 0.0, -ICO_Z },
+	//	{ 0.0, ICO_Z, ICO_X},{ 0.0, ICO_Z, -ICO_X },{ 0.0, -ICO_Z, ICO_X },{ 0.0, -ICO_Z, -ICO_X },
+	//	{ ICO_Z, ICO_X, 0.0},{ -ICO_Z, ICO_X, 0.0 },{ ICO_Z, -ICO_X, 0.0 },{ -ICO_Z, -ICO_X, 0.0 }
+	//};
 
-	//Mapping normals to Icosahedron
-	QFile file("EGI_intensity_data.txt");
-	if (!file.open(QIODevice::Truncate | QFile::ReadWrite | QFile::Text))
-		emit record->statusUpdate("can't open EGI_intensity_data.txt");
-	QTextStream in(&file);
+	//static unsigned int tindices[20][3] = {
+	//	{ 1,4,0 },{ 4,9,0 },{ 4,5,9 },{ 8,5,4 },{ 1,8,4 },
+	//	{ 1,10,8 },{ 10,3,8 },{ 8,3,5 },{ 3,2,5 },{ 3,7,2 },
+	//	{ 3,10,7 },{ 10,6,7 },{ 6,11,7 },{ 6,0,11 },{ 6,1,0 },
+	//	{ 10,1,6 },{ 11,0,9 },{ 2,11,9 },{ 5,2,9 },{ 11,2,7 }
+	//};
 
-	unsigned int intensity_EGI_ICO[20] = { 0 };
+	////Mapping normals to Icosahedron
+	//QFile file("EGI_intensity_data.txt");
+	//if (!file.open(QIODevice::Truncate | QFile::ReadWrite | QFile::Text))
+	//	emit record->statusUpdate("can't open EGI_intensity_data.txt");
+	//QTextStream in(&file);
 
-	for (int i = 0; i < 20; ++i)
-	{
-		Eigen::Vector3f lamda;
-		Eigen::Vector3f normal_vector;
-		Eigen::Matrix3f indice_matrix;
-		indice_matrix << vdata[tindices[i][0]][0], vdata[tindices[i][1]][0], vdata[tindices[i][2]][0],
-			vdata[tindices[i][0]][1], vdata[tindices[i][1]][1], vdata[tindices[i][2]][1],
-			vdata[tindices[i][0]][2], vdata[tindices[i][1]][2], vdata[tindices[i][2]][2];
-		for (int j = 0; j < size; ++j)
-		{
-			normal_vector << cloud_EGI->points[j].x, cloud_EGI->points[j].y, cloud_EGI->points[j].z;
-			lamda = indice_matrix.inverse() * normal_vector;
-			if ((lamda[0] > 0) && (lamda[1] > 0) && (lamda[2] > 0))
-			{
-				intensity_EGI_ICO[i]++;
+	//unsigned int intensity_EGI_ICO[20] = { 0 };
 
-				//in << lamda[0] << " " << lamda[1] << " " << lamda[2] << endl;
-				record->progressBarUpdate(int(100 * (i * size + j) / (20 * size)));
-			}
-		}
-		in << intensity_EGI_ICO[i] << endl;
-	}
-	file.close();
+	//for (int i = 0; i < 20; ++i)
+	//{
+	//	Eigen::Vector3f lamda;
+	//	Eigen::Vector3f normal_vector;
+	//	Eigen::Matrix3f indice_matrix;
+	//	indice_matrix << vdata[tindices[i][0]][0], vdata[tindices[i][1]][0], vdata[tindices[i][2]][0],
+	//		vdata[tindices[i][0]][1], vdata[tindices[i][1]][1], vdata[tindices[i][2]][1],
+	//		vdata[tindices[i][0]][2], vdata[tindices[i][1]][2], vdata[tindices[i][2]][2];
+	//	for (int j = 0; j < size; ++j)
+	//	{
+	//		normal_vector << cloud_EGI->points[j].x, cloud_EGI->points[j].y, cloud_EGI->points[j].z;
+	//		lamda = indice_matrix.inverse() * normal_vector;
+	//		if ((lamda[0] > 0) && (lamda[1] > 0) && (lamda[2] > 0))
+	//		{
+	//			intensity_EGI_ICO[i]++;
 
-	record->progressBarUpdate(100);
+	//			//in << lamda[0] << " " << lamda[1] << " " << lamda[2] << endl;
+	//			record->progressBarUpdate(int(100 * (i * size + j) / (20 * size)));
+	//		}
+	//	}
+	//	in << intensity_EGI_ICO[i] << endl;
+	//}
+	//file.close();
+
+	//record->progressBarUpdate(100);
 
 	//Extend Icosahedron
 
@@ -453,19 +495,20 @@ Visualization::computeEGI()
 	//ne.compute(*normals_EGI);
 
 	//EGI_viewer->addPointCloudNormals<pcl::PointXYZ, pcl::Normal>(cloud_EGI, normals_EGI, 100, 0.2);
-	EGI_viewer->setBackgroundColor(0, 0, 0);
-	pcl::visualization::PointCloudColorHandlerCustom<PointT> rgb(cloud_EGI, 220, 220, 220);
-	EGI_viewer->addPointCloud(cloud_EGI, rgb, "EGI cloud");
-	EGI_viewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, "EGI cloud");
-	EGI_viewer->addCoordinateSystem(1.0);
-	EGI_viewer->initCameraParameters();
 
-	while (!EGI_viewer->wasStopped())
-	{
-		EGI_viewer->spinOnce(100);
-		boost::this_thread::sleep(boost::posix_time::microseconds(100000));
-	}
-	record->progressBarUpdate(100);
+	//EGI_viewer->setBackgroundColor(0, 0, 0);
+	//pcl::visualization::PointCloudColorHandlerCustom<PointT> rgb(cloud_EGI, 220, 220, 220);
+	//EGI_viewer->addPointCloud(cloud_EGI, rgb, "EGI cloud");
+	//EGI_viewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, "EGI cloud");
+	//EGI_viewer->addCoordinateSystem(1.0);
+	//EGI_viewer->initCameraParameters();
+
+	//while (!EGI_viewer->wasStopped())
+	//{
+	//	EGI_viewer->spinOnce(100);
+	//	boost::this_thread::sleep(boost::posix_time::microseconds(100000));
+	//}
+	//record->progressBarUpdate(100);
 
 	return true;
 }

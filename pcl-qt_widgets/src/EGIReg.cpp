@@ -3,10 +3,18 @@
 #define ICO_X .525731112119133606
 #define ICO_Z .850650808352039932
 
-EGIReg::EGIReg(PointCloudT::Ptr cloud_model, PointCloudT::Ptr cloud_data)
+EGIReg::EGIReg(PointCloudT::Ptr &cloud_model, PointCloudT::Ptr &cloud_data)
 	:model(cloud_model), data(cloud_data)
 {
 	Record *record = new Record();
+	viewer.reset(new pcl::visualization::PCLVisualizer("EGI", true));
+	// Create two verticaly separated viewports
+	int v1(1);
+	int v2(2);
+	viewer->createViewPort(0.0, 0.0, 0.5, 1.0, v1);
+	viewer->createViewPort(0.5, 0.0, 1.0, 1.0, v2);
+	viewer->setBackgroundColor(0, 0, 0, v1);
+	viewer->setBackgroundColor(0.1, 0.1, 0.1, v2);
 }
 
 
@@ -230,6 +238,17 @@ EGIReg::search(Eigen::Matrix4d &transformation)
 	translation = translationEstimate();
 	normalSphereCompute(model_trans, model_normal_sphere);
 	normalSphereCompute(data_trans, data_normal_sphere);
+
+	pcl::visualization::PointCloudColorHandlerCustom<PointT> green(model_normal_sphere, 20, 180, 20);
+	viewer->addPointCloud(model_normal_sphere, green, "model cloud", 1);
+
+	pcl::visualization::PointCloudColorHandlerCustom<PointT> red(data_normal_sphere, 180, 20, 20);
+	viewer->addPointCloud(data_normal_sphere, red, "data cloud", 2);
+
+	viewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, "model cloud");
+	viewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, "data cloud");
+	viewer->addCoordinateSystem(10.0);
+	viewer->initCameraParameters();
 
 	Init(500, 0.8, 1, 1000, 0.05, -PI, PI);
 	ImplementGa();

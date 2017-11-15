@@ -88,8 +88,10 @@ class EGIReg : public QObject
 	Q_OBJECT
 
 public:
-	EGIReg(PointCloudT::Ptr cloud_model, PointCloudT::Ptr cloud_data);
+	EGIReg(PointCloudT::Ptr &cloud_model, PointCloudT::Ptr &cloud_data);
 	virtual ~EGIReg();
+
+	boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer;
 
 	//functions
 	void params_initial();

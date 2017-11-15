@@ -39,8 +39,8 @@ MainWindow::MainWindow(QWidget *parent) :
 	ui->pushButton_10->setEnabled(false);
 
 	ui->spinBox_2->setValue(100);
-	ui->doubleSpinBox->setValue(0.2);
-	ui->doubleSpinBox_2->setValue(0.3);
+	ui->doubleSpinBox->setValue(20.0);
+	ui->doubleSpinBox_2->setValue(30.0);
 
 	QStatusBar* bar = ui->statusBar;
 	statusLabel = new QLabel;
@@ -167,7 +167,7 @@ MainWindow::onPreviewOpenSlot()
 		ui->pushButton_10->setEnabled(true);
 	}
 		
-	visualization = new Visualization(fileName_Model);
+	visualization = new Visualization(fileName_Model, fileName_Data);
 	QThread * th = new QThread();	
 	visualization->moveToThread(th);
 
