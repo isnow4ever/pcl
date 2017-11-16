@@ -9,6 +9,8 @@ Visualization::Visualization(QString filename, QString filename_data)
 	:filename(filename), filename_data(filename_data)
 {
 	record = new Record();
+	original_model.reset(new PointCloudT);
+	original_data.reset(new PointCloudT);
 	cloud.reset(new PointCloudT);
 	cloud_out.reset(new PointCloudT);
 	cloud_normals.reset(new PointCloudN);
@@ -53,6 +55,7 @@ Visualization::preview(QString filename, QString filename_data)
 			record->statusUpdate("Cannot open ply file!");
 		}
 	}
+	*original_model = *cloud;
 	if (filename_data.endsWith(".pcd"))
 	{
 		if (!pcl::io::loadPCDFile(file_name_data, *cloud_data))
@@ -67,6 +70,7 @@ Visualization::preview(QString filename, QString filename_data)
 			record->statusUpdate("Cannot open ply file!");
 		}
 	}
+	*original_data = *cloud_data;
 
 	//display number of points
 	record->info = QString("model size: "
@@ -98,7 +102,6 @@ Visualization::preview(QString filename, QString filename_data)
 	viewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, "data cloud");
 	viewer->addCoordinateSystem(10.0);
 	viewer->initCameraParameters();
-
 	
 
 	while (!viewer->wasStopped())
@@ -281,8 +284,8 @@ Visualization::computeCentroid()
 	pcl::transformPointCloud(*cloud, *cloud_out, transformation_matrix, true);
 	*cloud = *cloud_out;
 
-	pcl::visualization::PointCloudColorHandlerCustom<PointT> green(cloud, 20, 180, 20);
-	viewer->updatePointCloud(cloud, green, "model cloud");
+	pcl::visualization::PointCloudColorHandlerCustom<PointT> green(cloud_out, 20, 180, 20);
+	viewer->updatePointCloud(cloud_out, green, "model cloud");
 
 	pcl::compute3DCentroid(*cloud_data, xyz_centroid);
 
@@ -295,8 +298,22 @@ Visualization::computeCentroid()
 	pcl::transformPointCloud(*cloud_data, *cloud_out, transformation_matrix, true);
 	*cloud_data = *cloud_out;
 
-	pcl::visualization::PointCloudColorHandlerCustom<PointT> red(cloud_data, 180, 20, 20);
-	viewer->updatePointCloud(cloud_data, red, "data cloud");
+	pcl::visualization::PointCloudColorHandlerCustom<PointT> red(cloud_out, 180, 20, 20);
+	viewer->updatePointCloud(cloud_out, red, "data cloud");
+
+	viewer->setCameraPosition(-50, 5, 360, 0, 0, 0);
+
+	//pcl::visualization::Camera cam;
+	//viewer->getCameraParameters(cam);
+
+	//std::stringstream ss;
+	//ss << cam.pos[0] << " "
+	//	<< cam.pos[1] << " "
+	//	<< cam.pos[2] << " "
+	//	<< cam.view[0] << " "
+	//	<< cam.view[1] << " "
+	//	<< cam.view[2];
+	//record->statusUpdate(QString::fromStdString(ss.str()));
 
 	return true;
 }
@@ -388,6 +405,55 @@ Visualization::computeFPFH()
 bool
 Visualization::computeEGI()
 {
+	/********************************* Visualization *************************************/
+	viewer->removeAllPointClouds();
+	int v1(1);
+	int v2(2);
+	int v3(3);
+	int v4(4);
+	viewer->createViewPort(0.0, 0.0, 0.5, 0.5, v3);
+	viewer->createViewPort(0.5, 0.0, 1.0, 0.5, v4);
+	viewer->createViewPort(0.0, 0.5, 0.5, 1.0, v1);
+	viewer->createViewPort(0.5, 0.5, 1.0, 1.0, v2);
+
+	viewer->setBackgroundColor(0, 0, 0, v1);
+	viewer->setBackgroundColor(0.1, 0.1, 0.1, v2);
+	viewer->setBackgroundColor(0.1, 0.1, 0.1, v3);
+	viewer->setBackgroundColor(0, 0, 0, v4);
+
+	pcl::visualization::PointCloudColorHandlerCustom<PointT> green(original_model, 20, 180, 20);
+	viewer->addPointCloud(original_model, green, "model cloud", v1);
+
+	pcl::visualization::PointCloudColorHandlerCustom<PointT> red(original_data, 180, 20, 20);
+	viewer->addPointCloud(original_data, red, "data cloud", v2);
+
+	viewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, "model cloud");
+	viewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, "data cloud");
+	viewer->addCoordinateSystem(10.0);
+	viewer->initCameraParameters();
+	computeCentroid();
+
+	/********************************* Preprogress *************************************/
+	Eigen::Matrix4d tf = Eigen::Matrix4d::Identity();;
+	EGIReg nsReg(original_model, original_data);
+	nsReg.params_initial();
+	nsReg.ns_visualization();
+
+	PointCloudT::Ptr model_normal_sphere;
+	PointCloudT::Ptr data_normal_sphere;
+	model_normal_sphere.reset(new PointCloudT);
+	data_normal_sphere.reset(new PointCloudT);
+
+	pcl::visualization::PointCloudColorHandlerCustom<PointT> g(model_normal_sphere, 20, 180, 20);
+	viewer->addPointCloud(model_normal_sphere, g, "model cloud", v3);
+
+	pcl::visualization::PointCloudColorHandlerCustom<PointT> r(data_normal_sphere, 180, 20, 20);
+	viewer->addPointCloud(data_normal_sphere, r, "data cloud", v4);
+
+
+	//nsReg.search(tf);
+
+
 	//if (cloud_normals->size() == 0)
 	//{
 	//	record->statusUpdate("no cloud normals!");
@@ -413,16 +479,14 @@ Visualization::computeEGI()
 	//	cloud_EGI->points[i].z = cloud_normals->at(i).normal_z;
 	//	record->progressBarUpdate(int(100 * i / size));
 	//}
-	Eigen::Matrix4d tf;
-	EGIReg egireg(cloud, cloud_data);
-	egireg.search(tf);
 
-	printf("Rotation matrix :\n");
-	printf("    | %6.3f %6.3f %6.3f | \n", tf(0, 0), tf(0, 1), tf(0, 2));
-	printf("R = | %6.3f %6.3f %6.3f | \n", tf(1, 0), tf(1, 1), tf(1, 2));
-	printf("    | %6.3f %6.3f %6.3f | \n", tf(2, 0), tf(2, 1), tf(2, 2));
-	printf("Translation vector :\n");
-	printf("t = < %6.3f, %6.3f, %6.3f >\n\n", tf(0, 3), tf(1, 3), tf(2, 3));
+
+	//printf("Rotation matrix :\n");
+	//printf("    | %6.3f %6.3f %6.3f | \n", tf(0, 0), tf(0, 1), tf(0, 2));
+	//printf("R = | %6.3f %6.3f %6.3f | \n", tf(1, 0), tf(1, 1), tf(1, 2));
+	//printf("    | %6.3f %6.3f %6.3f | \n", tf(2, 0), tf(2, 1), tf(2, 2));
+	//printf("Translation vector :\n");
+	//printf("t = < %6.3f, %6.3f, %6.3f >\n\n", tf(0, 3), tf(1, 3), tf(2, 3));
 
 	///*************************Create Icosahedron****************************/
 	//static float vdata[12][3] = {

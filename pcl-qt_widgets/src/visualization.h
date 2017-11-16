@@ -31,6 +31,8 @@ public:
 	QString filename;
 	QString filename_data;
 
+	PointCloudT::Ptr original_model;
+	PointCloudT::Ptr original_data;
 	PointCloudT::Ptr cloud;
 	PointCloudT::Ptr cloud_out;
 	PointCloudN::Ptr cloud_normals;

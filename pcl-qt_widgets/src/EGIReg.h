@@ -91,8 +91,6 @@ public:
 	EGIReg(PointCloudT::Ptr &cloud_model, PointCloudT::Ptr &cloud_data);
 	virtual ~EGIReg();
 
-	boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer;
-
 	//functions
 	void params_initial();
 
@@ -106,6 +104,7 @@ public:
 	double computeCorrelation(float omega, float fai, float kappa);
 	double correlation(std::vector<int> sphere_1, std::vector<int> sphere_2);
 
+	void ns_visualization();
 	void search(Eigen::Matrix4d &transformation);
 
 	//Records
@@ -122,6 +121,10 @@ public:
 	Eigen::Matrix3d getRotation();
 	Eigen::Matrix4d getTransformation();
 
+	PointCloudT::Ptr getModelNormalSphere();
+	PointCloudT::Ptr getDataNormalSphere();
+
+
 	int getProgress();
 
 
@@ -133,6 +136,8 @@ public:
 	void ImplementGa();//执行遗传算法
 
 private:
+	bool preprogress;//判断平移点云和NS电云是否已计算
+
 	PointCloudT::Ptr model;
 	PointCloudT::Ptr data;
 
