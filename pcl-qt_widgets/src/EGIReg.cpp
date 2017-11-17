@@ -49,12 +49,12 @@ EGIReg::params_initial()
 void
 EGIReg::translationEstimate()
 {
-	Eigen::Vector4f centroid_model, centroid_data;
+	Eigen::Vector4d centroid_model, centroid_data;
 	pcl::compute3DCentroid(*model, centroid_model);
 	pcl::compute3DCentroid(*data, centroid_data);
 
 	//transform point cloud
-	Eigen::Matrix4f transformation_matrix = Eigen::Matrix4f::Identity();
+	Eigen::Matrix4d transformation_matrix = Eigen::Matrix4d::Identity();
 	transformation_matrix(0, 0) = 1;
 	transformation_matrix(1, 1) = 1;
 	transformation_matrix(2, 2) = 1;
@@ -69,7 +69,7 @@ EGIReg::translationEstimate()
 	transformation_matrix(2, 3) = -centroid_data(2);
 	pcl::transformPointCloud(*data, *data_trans, transformation_matrix, true);
 
-	//translation = centroid_model.head(3) - centroid_data.head(3);
+	translation = centroid_model.head(3) - centroid_data.head(3);
 
 	return;
 }
@@ -149,7 +149,7 @@ EGIReg::mapToIcosahedron(PointCloudT::Ptr &normal_sphere, std::vector<int> *EGI_
 
 	//Mapping normals to Icosahedron
 	int size = normal_sphere->size();
-	qDebug("size: %d", size);
+	//qDebug("size: %d", size);
 
 	triangle_vectors.resize(20 * pow(4, EGI_level - 1));
 	for (int k = 0; k < 20; k++)
@@ -289,7 +289,7 @@ EGIReg::ns_visualization()
 void
 EGIReg::search(Eigen::Matrix4d &transformation)
 {
-	Init(500, 0.8, 1, 1000, 0.05, -PI, PI);
+	Init(5, 0.8, 1, 50, 0.5, -PI, PI);
 	ImplementGa();
 
 	double omega, fai, kappa;
@@ -463,7 +463,7 @@ EGIReg::CalculateRate()
 	double maxRate = 0.0, minRate = 0.0, maxData = 0.0;
 
 	Ydata = Curve(popOperation.vecPop[0]);
-	Yrate = exp(Ydata);
+	Yrate = Ydata;
 	popOperation.vecPop[0].fitness = Yrate;
 	maxRate = Yrate;
 	minRate = Yrate;
@@ -472,7 +472,7 @@ EGIReg::CalculateRate()
 	for (int i = 1; i < popOperation.popSize; i++)
 	{
 		Ydata = Curve(popOperation.vecPop[i]);
-		Yrate = exp(Ydata);
+		Yrate = Ydata;
 		popOperation.vecPop[i].fitness = Yrate;
 		AllRate = AllRate + Yrate;
 		if (maxRate < Yrate)
@@ -598,8 +598,8 @@ EGIReg::ImplementGa()
 void
 EGIReg::Report()
 {
-	cout << "第" << generationCount << "代" << endl;
-	cout << "最大适应率：" << popOperation.bestFitness << endl;
-	cout << "最小适应率：" << popOperation.worstFitness << endl;
-	cout << "最大函数值：" << popOperation.MaxY << endl;
+	qDebug("GenerationCount: %d.", generationCount);
+	//qDebug("bestFitness: %f.", popOperation.bestFitness);
+	//qDebug("worstFitness: %f.", popOperation.worstFitness);
+	qDebug("Max Correlation: %f.", popOperation.MaxY);
 }

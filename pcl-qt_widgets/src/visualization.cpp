@@ -440,7 +440,7 @@ Visualization::computeEGI()
 	nsReg->setModel(original_model);
 	nsReg->setData(original_data);
 	nsReg->ns_visualization();
-	//nsReg->translationEstimate();
+	nsReg->translationEstimate();
 
 	viewer->addPointCloud(nsReg->model_normal_sphere, green, "model", v3);
 	viewer->addPointCloud(nsReg->data_normal_sphere, red, "data", v4);
@@ -449,8 +449,20 @@ Visualization::computeEGI()
 	//double corr = nsReg->computeCorrelation(0.5, 0.5, 0.5);
 
 	//viewer->addText(QString::number(corr, 'g', 6).toStdString(), 0.5, 0.5, "debug", 0);
+	pcl::transformPointCloud(*cloud_data, *cloud_out, tf, true);
+	*cloud_data = *cloud_out;
+	viewer->updatePointCloud(cloud_data, red, "data cloud");
 
+	pcl::transformPointCloud(*nsReg->data_normal_sphere, *cloud_out, tf, true);
+	*nsReg->data_normal_sphere = *cloud_out;
+	viewer->updatePointCloud(nsReg->data_normal_sphere, red, "data");
 
+	qDebug("Rotation matrix :\n");
+	qDebug("    | %6.3f %6.3f %6.3f | \n", tf(0, 0), tf(0, 1), tf(0, 2));
+	qDebug("R = | %6.3f %6.3f %6.3f | \n", tf(1, 0), tf(1, 1), tf(1, 2));
+	qDebug("    | %6.3f %6.3f %6.3f | \n", tf(2, 0), tf(2, 1), tf(2, 2));
+	qDebug("Translation vector :\n");
+	qDebug("t = < %6.3f, %6.3f, %6.3f >\n\n", tf(0, 3), tf(1, 3), tf(2, 3));
 
 
 	//if (cloud_normals->size() == 0)
@@ -480,12 +492,6 @@ Visualization::computeEGI()
 	//}
 
 
-	printf("Rotation matrix :\n");
-	printf("    | %6.3f %6.3f %6.3f | \n", tf(0, 0), tf(0, 1), tf(0, 2));
-	printf("R = | %6.3f %6.3f %6.3f | \n", tf(1, 0), tf(1, 1), tf(1, 2));
-	printf("    | %6.3f %6.3f %6.3f | \n", tf(2, 0), tf(2, 1), tf(2, 2));
-	printf("Translation vector :\n");
-	printf("t = < %6.3f, %6.3f, %6.3f >\n\n", tf(0, 3), tf(1, 3), tf(2, 3));
 
 	///*************************Create Icosahedron****************************/
 	//static float vdata[12][3] = {
