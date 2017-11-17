@@ -3,20 +3,9 @@
 #define ICO_X .525731112119133606
 #define ICO_Z .850650808352039932
 
-EGIReg::EGIReg(PointCloudT::Ptr &cloud_model, PointCloudT::Ptr &cloud_data)
-	:model(cloud_model), data(cloud_data)
+EGIReg::EGIReg()
 {
 	Record *record = new Record();
-}
-
-
-EGIReg::~EGIReg()
-{
-}
-
-void
-EGIReg::params_initial()
-{
 	preprogress = false;
 
 	model.reset(new PointCloudT);
@@ -33,17 +22,39 @@ EGIReg::params_initial()
 	normal_scale = 20.0;
 }
 
-Eigen::Vector3d
+
+EGIReg::~EGIReg()
+{
+}
+
+void
+EGIReg::params_initial()
+{
+	preprogress = false;
+
+	//model.reset(new PointCloudT);
+	//data.reset(new PointCloudT);
+
+	model_trans.reset(new PointCloudT);
+	data_trans.reset(new PointCloudT);
+
+	model_normal_sphere.reset(new PointCloudT);
+	data_normal_sphere.reset(new PointCloudT);
+
+	search_radius = 20.0;
+	normal_level = 100;
+	normal_scale = 20.0;
+}
+
+void
 EGIReg::translationEstimate()
 {
-	record->statusUpdate("Translation Estimate...");
-	pcl_time.tic();
-	Eigen::Vector4d centroid_model, centroid_data;
+	Eigen::Vector4f centroid_model, centroid_data;
 	pcl::compute3DCentroid(*model, centroid_model);
 	pcl::compute3DCentroid(*data, centroid_data);
 
 	//transform point cloud
-	Eigen::Matrix4d transformation_matrix = Eigen::Matrix4d::Identity();
+	Eigen::Matrix4f transformation_matrix = Eigen::Matrix4f::Identity();
 	transformation_matrix(0, 0) = 1;
 	transformation_matrix(1, 1) = 1;
 	transformation_matrix(2, 2) = 1;
@@ -58,17 +69,34 @@ EGIReg::translationEstimate()
 	transformation_matrix(2, 3) = -centroid_data(2);
 	pcl::transformPointCloud(*data, *data_trans, transformation_matrix, true);
 
-	Eigen::Vector3d t = centroid_model.head(3) - centroid_data.head(3);
+	//translation = centroid_model.head(3) - centroid_data.head(3);
 
-	record->statusUpdate("Translation Estimate completed in " + QString::number(pcl_time.toc()) + "ms;");
-
-	return t;
+	return;
 }
 
 void
-EGIReg::normalSphereCompute(PointCloudT::Ptr cloud_in, PointCloudT::Ptr cloud_out)
+EGIReg::computeCentroid(const PointCloudT::ConstPtr &cloud_in, PointCloudT::Ptr &cloud_out)
 {
-	record->statusUpdate("Compute Normal Sphere...");
+	Eigen::Vector4f centroid;
+	pcl::compute3DCentroid(*cloud_in, centroid);
+
+	//transform point cloud
+	Eigen::Matrix4f transformation_matrix = Eigen::Matrix4f::Identity();
+	transformation_matrix(0, 0) = 1;
+	transformation_matrix(1, 1) = 1;
+	transformation_matrix(2, 2) = 1;
+	transformation_matrix(0, 3) = -centroid(0);
+	transformation_matrix(1, 3) = -centroid(1);
+	transformation_matrix(2, 3) = -centroid(2);
+	transformation_matrix(3, 3) = 1;
+	pcl::transformPointCloud(*cloud_in, *cloud_out, transformation_matrix, true);
+
+	return;
+}
+
+void
+EGIReg::normalSphereCompute(const PointCloudT::ConstPtr &cloud_in, PointCloudT::Ptr &cloud_out)
+{
 	pcl::NormalEstimation<pcl::PointXYZ, pcl::Normal> ne;
 	ne.setInputCloud(cloud_in);
 
@@ -83,7 +111,6 @@ EGIReg::normalSphereCompute(PointCloudT::Ptr cloud_in, PointCloudT::Ptr cloud_ou
 
 	if (cloud_normals->size() == 0)
 	{
-		record->statusUpdate("no cloud normals!");
 		return;
 	}
 	int size = cloud_normals->size();
@@ -92,16 +119,18 @@ EGIReg::normalSphereCompute(PointCloudT::Ptr cloud_in, PointCloudT::Ptr cloud_ou
 
 	for (int i = 0; i < size; ++i)
 	{
-		cloud_out->points[i].x = cloud_normals->at(i).normal_x;
-		cloud_out->points[i].y = cloud_normals->at(i).normal_y;
-		cloud_out->points[i].z = cloud_normals->at(i).normal_z;
-		record->progressBarUpdate(int(100 * i / size));
+		cloud_out->points[i].x = cloud_normals->at(i).normal_x * 100;
+		cloud_out->points[i].y = cloud_normals->at(i).normal_y * 100;
+		cloud_out->points[i].z = cloud_normals->at(i).normal_z * 100;
 	}
 }
 
 void
-EGIReg::mapToIcosahedron(PointCloudT::Ptr normal_sphere, std::vector<int> EGI_intensity, int EGI_level)
+EGIReg::mapToIcosahedron(PointCloudT::Ptr &normal_sphere, std::vector<int> *EGI_intensity, int EGI_level)
 {
+	std::vector< std::vector<Eigen::Vector3d> > triangle_vectors;
+	std::vector<Eigen::Vector3i> face_indices;
+	std::vector<Eigen::Vector3d> vertex_indices;
 	/*************************Create Icosahedron****************************/
 	vertex_indices.resize(12);
 	vertex_indices = {
@@ -120,15 +149,27 @@ EGIReg::mapToIcosahedron(PointCloudT::Ptr normal_sphere, std::vector<int> EGI_in
 
 	//Mapping normals to Icosahedron
 	int size = normal_sphere->size();
-	triangle_vectors.empty();
+	qDebug("size: %d", size);
+
+	triangle_vectors.resize(20 * pow(4, EGI_level - 1));
 	for (int k = 0; k < 20; k++)
 	{
-		subdivide(vertex_indices.at(face_indices.at(k)[0]), vertex_indices.at(face_indices.at(k)[1]), vertex_indices.at(face_indices.at(k)[2]), EGI_level);
-	}
-	EGI_intensity.resize(20 * 4^(EGI_level - 1));
-	EGI_intensity = { 0 };
+		//subdivide(vertex_indices.at(face_indices.at(k)[0]),
+		//	vertex_indices.at(face_indices.at(k)[1]),
+		//	vertex_indices.at(face_indices.at(k)[2]),
+		//	EGI_level,
+		//	triangle_vectors,
+		//	vertex_indices);
 
-	for (int i = 0; i < EGI_intensity.size(); ++i)
+		std::vector<Eigen::Vector3d> tri_vertex;
+		tri_vertex.push_back(vertex_indices.at(face_indices.at(k)[0]));
+		tri_vertex.push_back(vertex_indices.at(face_indices.at(k)[1]));
+		tri_vertex.push_back(vertex_indices.at(face_indices.at(k)[2]));
+		triangle_vectors[k] = tri_vertex;
+	}
+	EGI_intensity->resize(20 * pow(4, EGI_level - 1));
+
+	for (int i = 0; i < EGI_intensity->size(); ++i)
 	{
 		Eigen::Vector3f lamda;
 		Eigen::Vector3f normal_vector;
@@ -136,16 +177,14 @@ EGIReg::mapToIcosahedron(PointCloudT::Ptr normal_sphere, std::vector<int> EGI_in
 		indice_matrix << triangle_vectors.at(i).at(0)[0], triangle_vectors.at(i).at(1)[0], triangle_vectors.at(i).at(2)[0],
 			triangle_vectors.at(i).at(0)[1], triangle_vectors.at(i).at(1)[1], triangle_vectors.at(i).at(2)[1],
 			triangle_vectors.at(i).at(0)[2], triangle_vectors.at(i).at(1)[2], triangle_vectors.at(i).at(2)[2];
-
+		EGI_intensity->at(i) = 0;
 		for (int j = 0; j < size; ++j)
 		{
 			normal_vector << normal_sphere->points[j].x, normal_sphere->points[j].y, normal_sphere->points[j].z;
 			lamda = indice_matrix.inverse() * normal_vector;
 			if ((lamda[0] > 0) && (lamda[1] > 0) && (lamda[2] > 0))
 			{
-				EGI_intensity[i]++;
-
-				record->progressBarUpdate(int(100 * (i * size + j) / (20 * size)));
+				EGI_intensity->at(i)++;
 			}
 		}
 	}
@@ -153,7 +192,12 @@ EGIReg::mapToIcosahedron(PointCloudT::Ptr normal_sphere, std::vector<int> EGI_in
 }
 
 void
-EGIReg::subdivide(Eigen::Vector3d v1, Eigen::Vector3d v2, Eigen::Vector3d v3, long depth)
+EGIReg::subdivide(Eigen::Vector3d v1,
+	Eigen::Vector3d v2,
+	Eigen::Vector3d v3,
+	long depth,
+	std::vector< std::vector<Eigen::Vector3d> > triangle_vectors,
+	std::vector<Eigen::Vector3d> vertex_indices)
 {
 	Eigen::Vector3d v12, v23, v31;
 	std::vector<Eigen::Vector3d> tri_vertex;
@@ -180,10 +224,10 @@ EGIReg::subdivide(Eigen::Vector3d v1, Eigen::Vector3d v2, Eigen::Vector3d v3, lo
 	}
 
 
-	subdivide(v1, v12, v31, depth - 1);
-	subdivide(v2, v23, v12, depth - 1);
-	subdivide(v3, v31, v23, depth - 1);
-	subdivide(v12, v23, v31, depth - 1);
+	subdivide(v1, v12, v31, depth - 1, triangle_vectors, vertex_indices);
+	subdivide(v2, v23, v12, depth - 1, triangle_vectors, vertex_indices);
+	subdivide(v3, v31, v23, depth - 1, triangle_vectors, vertex_indices);
+	subdivide(v12, v23, v31, depth - 1, triangle_vectors, vertex_indices);
 }
 
 double
@@ -193,8 +237,9 @@ EGIReg::correlation(std::vector<int> sphere_1, std::vector<int> sphere_2)
 	Eigen::VectorXi s2 = Eigen::Map<Eigen::VectorXi, Eigen::Unaligned>(sphere_2.data(), sphere_2.size());
 	int inner_product = s1.transpose()*s2;
 	double corr;
-	corr = inner_product / (s1.norm()*s2.norm());
-
+	corr = inner_product / (s1.cast<double>().norm() * s2.cast<double>().norm() + 1e-6);
+	//qDebug("inner product: %d", inner_product);
+	//qDebug("s1.norm(): %f", s1.cast<double>().norm());
 	return corr;
 }
 
@@ -213,13 +258,16 @@ EGIReg::computeCorrelation(float omega, float fai, float kappa)
 	Eigen::Affine3d t(Eigen::Translation3d(0.0, 0.0, 0.0));
 	Eigen::Matrix4d matrix = (t * r).matrix();
 	
-	PointCloudT::Ptr data_normal_sphere_trans;
-	data_normal_sphere_trans.reset(new PointCloudT);
+	PointCloudT::Ptr data_normal_sphere_trans(new PointCloudT);
 	pcl::transformPointCloud(*data_normal_sphere, *data_normal_sphere_trans, matrix, true);
 
 	std::vector<int> intensity_model, intensity_data;
-	mapToIcosahedron(model_normal_sphere, intensity_model, 4);
-	mapToIcosahedron(data_normal_sphere_trans, intensity_data, 4);
+	mapToIcosahedron(model_normal_sphere, &intensity_model, 1);
+	mapToIcosahedron(data_normal_sphere_trans, &intensity_data, 1);
+	//for (int k = 0; k < 20; k++)
+	//{
+	//	qDebug("sphere: %d, %d", intensity_model[k], intensity_data[k]);
+	//}
 
 	double corr = correlation(intensity_model, intensity_data);
 
@@ -229,21 +277,13 @@ EGIReg::computeCorrelation(float omega, float fai, float kappa)
 void
 EGIReg::ns_visualization()
 {
-	translation = translationEstimate();
+	computeCentroid(model, model_trans);
+	computeCentroid(data, data_trans);
+
+	//translationEstimate();
 	normalSphereCompute(model_trans, model_normal_sphere);
 	normalSphereCompute(data_trans, data_normal_sphere);
-	preprogress = true;
-
-	//pcl::visualization::PointCloudColorHandlerCustom<PointT> green(model_normal_sphere, 20, 180, 20);
-	//viewer->addPointCloud(model_normal_sphere, green, "model cloud", 1);
-
-	//pcl::visualization::PointCloudColorHandlerCustom<PointT> red(data_normal_sphere, 180, 20, 20);
-	//viewer->addPointCloud(data_normal_sphere, red, "data cloud", 2);
-
-	//viewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, "model cloud");
-	//viewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, "data cloud");
-	//viewer->addCoordinateSystem(10.0);
-	//viewer->initCameraParameters();
+	//preprogress = true;
 }
 
 void
@@ -278,7 +318,7 @@ EGIReg::recordToFile(QString filename, QString content)
 {
 	QFile file(filename);
 	if (!file.open(QIODevice::Truncate | QFile::ReadWrite | QFile::Text))
-		emit record->statusUpdate("can't open EGI_intensity_data.txt");
+		emit qDebug("can't open EGI_intensity_data.txt");
 	QTextStream in(&file);
 
 	in << content << endl;
@@ -305,6 +345,19 @@ EGIReg::setNormalScale(double ns)
 	normal_scale = ns;
 }
 
+void
+EGIReg::setModel(PointCloudT::Ptr &cloud_in)
+{
+	*model = *cloud_in;
+	return;
+}
+
+void
+EGIReg::setData(PointCloudT::Ptr &cloud_in)
+{
+	*data = *cloud_in;
+	return;
+}
 
 Eigen::Vector3d
 EGIReg::getTranslation()
@@ -329,7 +382,7 @@ EGIReg::getModelNormalSphere()
 {
 	if (!preprogress)
 	{
-		record->statusUpdate("PointCloud not available.");
+		qDebug("PointCloud not available.");
 	}
 	return model_normal_sphere;
 }
@@ -339,7 +392,7 @@ EGIReg::getDataNormalSphere()
 {
 	if (!preprogress)
 	{
-		record->statusUpdate("PointCloud not available.");
+		qDebug("PointCloud not available.");
 	}
 	return data_normal_sphere;
 }

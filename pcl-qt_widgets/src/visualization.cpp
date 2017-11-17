@@ -429,29 +429,28 @@ Visualization::computeEGI()
 
 	viewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, "model cloud");
 	viewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, "data cloud");
-	viewer->addCoordinateSystem(10.0);
+	viewer->addCoordinateSystem(10.0, v1);
+	viewer->addCoordinateSystem(10.0, v2);
 	viewer->initCameraParameters();
 	computeCentroid();
 
 	/********************************* Preprogress *************************************/
 	Eigen::Matrix4d tf = Eigen::Matrix4d::Identity();;
-	EGIReg nsReg(original_model, original_data);
-	nsReg.params_initial();
-	nsReg.ns_visualization();
+	EGIReg *nsReg = new EGIReg();
+	nsReg->setModel(original_model);
+	nsReg->setData(original_data);
+	nsReg->ns_visualization();
+	//nsReg->translationEstimate();
 
-	PointCloudT::Ptr model_normal_sphere;
-	PointCloudT::Ptr data_normal_sphere;
-	model_normal_sphere.reset(new PointCloudT);
-	data_normal_sphere.reset(new PointCloudT);
+	viewer->addPointCloud(nsReg->model_normal_sphere, green, "model", v3);
+	viewer->addPointCloud(nsReg->data_normal_sphere, red, "data", v4);
+	
+	nsReg->search(tf);
+	//double corr = nsReg->computeCorrelation(0.5, 0.5, 0.5);
 
-	pcl::visualization::PointCloudColorHandlerCustom<PointT> g(model_normal_sphere, 20, 180, 20);
-	viewer->addPointCloud(model_normal_sphere, g, "model cloud", v3);
-
-	pcl::visualization::PointCloudColorHandlerCustom<PointT> r(data_normal_sphere, 180, 20, 20);
-	viewer->addPointCloud(data_normal_sphere, r, "data cloud", v4);
+	//viewer->addText(QString::number(corr, 'g', 6).toStdString(), 0.5, 0.5, "debug", 0);
 
 
-	//nsReg.search(tf);
 
 
 	//if (cloud_normals->size() == 0)
@@ -481,12 +480,12 @@ Visualization::computeEGI()
 	//}
 
 
-	//printf("Rotation matrix :\n");
-	//printf("    | %6.3f %6.3f %6.3f | \n", tf(0, 0), tf(0, 1), tf(0, 2));
-	//printf("R = | %6.3f %6.3f %6.3f | \n", tf(1, 0), tf(1, 1), tf(1, 2));
-	//printf("    | %6.3f %6.3f %6.3f | \n", tf(2, 0), tf(2, 1), tf(2, 2));
-	//printf("Translation vector :\n");
-	//printf("t = < %6.3f, %6.3f, %6.3f >\n\n", tf(0, 3), tf(1, 3), tf(2, 3));
+	printf("Rotation matrix :\n");
+	printf("    | %6.3f %6.3f %6.3f | \n", tf(0, 0), tf(0, 1), tf(0, 2));
+	printf("R = | %6.3f %6.3f %6.3f | \n", tf(1, 0), tf(1, 1), tf(1, 2));
+	printf("    | %6.3f %6.3f %6.3f | \n", tf(2, 0), tf(2, 1), tf(2, 2));
+	printf("Translation vector :\n");
+	printf("t = < %6.3f, %6.3f, %6.3f >\n\n", tf(0, 3), tf(1, 3), tf(2, 3));
 
 	///*************************Create Icosahedron****************************/
 	//static float vdata[12][3] = {

@@ -88,18 +88,24 @@ class EGIReg : public QObject
 	Q_OBJECT
 
 public:
-	EGIReg(PointCloudT::Ptr &cloud_model, PointCloudT::Ptr &cloud_data);
+	EGIReg();
 	virtual ~EGIReg();
 
 	//functions
 	void params_initial();
 
-	Eigen::Vector3d translationEstimate();
+	void translationEstimate();
 	//Eigen::Matrix3d rotationEstimate();
 	
-	void normalSphereCompute(PointCloudT::Ptr cloud_in, PointCloudT::Ptr cloud_out);
-	void mapToIcosahedron(PointCloudT::Ptr normal_sphere, std::vector<int> intensity, int EGI_level);
-	void subdivide(Eigen::Vector3d v1, Eigen::Vector3d v2, Eigen::Vector3d v3, long depth);
+	void computeCentroid(const PointCloudT::ConstPtr &cloud_in, PointCloudT::Ptr &cloud_out);
+	void normalSphereCompute(const PointCloudT::ConstPtr &cloud_in, PointCloudT::Ptr &cloud_out);
+	void mapToIcosahedron(PointCloudT::Ptr &normal_sphere, std::vector<int> *intensity, int EGI_level);
+	void subdivide(Eigen::Vector3d v1,
+		Eigen::Vector3d v2,
+		Eigen::Vector3d v3, 
+		long depth,
+		std::vector< std::vector<Eigen::Vector3d> > triangle_vectors,
+		std::vector<Eigen::Vector3d> vertex_indices);
 
 	double computeCorrelation(float omega, float fai, float kappa);
 	double correlation(std::vector<int> sphere_1, std::vector<int> sphere_2);
@@ -117,6 +123,9 @@ public:
 	void setNormalLevel(int);
 	void setNormalScale(double);
 
+	void setModel(PointCloudT::Ptr &cloud_in);
+	void setData(PointCloudT::Ptr &cloud_in);
+
 	Eigen::Vector3d getTranslation();
 	Eigen::Matrix3d getRotation();
 	Eigen::Matrix4d getTransformation();
@@ -124,6 +133,14 @@ public:
 	PointCloudT::Ptr getModelNormalSphere();
 	PointCloudT::Ptr getDataNormalSphere();
 
+	PointCloudT::Ptr model;
+	PointCloudT::Ptr data;
+
+	PointCloudT::Ptr model_trans;
+	PointCloudT::Ptr data_trans;
+
+	PointCloudT::Ptr model_normal_sphere;
+	PointCloudT::Ptr data_normal_sphere;
 
 	int getProgress();
 
@@ -138,18 +155,11 @@ public:
 private:
 	bool preprogress;//判断平移点云和NS电云是否已计算
 
-	PointCloudT::Ptr model;
-	PointCloudT::Ptr data;
 
-	PointCloudT::Ptr model_trans;
-	PointCloudT::Ptr data_trans;
 
-	PointCloudT::Ptr model_normal_sphere;
-	PointCloudT::Ptr data_normal_sphere;
-
-	std::vector< std::vector<Eigen::Vector3d> > triangle_vectors;
-	std::vector<Eigen::Vector3i> face_indices;
-	std::vector<Eigen::Vector3d> vertex_indices;
+	//std::vector< std::vector<Eigen::Vector3d> > triangle_vectors;
+	//std::vector<Eigen::Vector3i> face_indices;
+	//std::vector<Eigen::Vector3d> vertex_indices;
 
 	//normal estimate params
 	double search_radius;

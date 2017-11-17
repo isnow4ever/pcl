@@ -49,6 +49,12 @@ MainWindow::MainWindow(QWidget *parent) :
 	statusLabel->setFrameShadow(QFrame::Sunken);
 	bar->addWidget(statusLabel);
 	statusLabel->setText("hello pcl!");
+
+	//Default filename
+	fileName_Model = "E:/Projects/pcl/pcl-qt_widgets/build/data/suixingdianban_model.ply";
+	fileName_Data = "E:/Projects/pcl/pcl-qt_widgets/build/data/suixingdianban_filtered.ply";
+	ui->textBrowser->setText("suixingdianban_model.ply");
+	ui->textBrowser_2->setText("suixingdianban_filtered.ply");
 }
 
 MainWindow::~MainWindow()
@@ -95,6 +101,7 @@ MainWindow::onDataFileOpenSlot()
 	QString fileName = QFileDialog::getOpenFileName(this,
 		tr("Open PointCloud"), ".",
 		tr("Open PLY/PCD files(*.ply *.pcd)"));
+	ui->textBrowser_2->setText("suixingdianban_filtered.ply");
 	QFileInfo temDir(fileName);
 	if (!fileName.isEmpty())
 	{
