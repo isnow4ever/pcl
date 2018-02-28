@@ -69,6 +69,7 @@ private slots:
 	void onComputeFPFHSlot();
 	void onFilterNDownsampling();
 	void onComputeEGI();
+	void onRegistration();
 };
 
 #endif // MAINWINDOW_H

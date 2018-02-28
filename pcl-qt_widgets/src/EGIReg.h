@@ -152,6 +152,12 @@ public:
 		double maxstep, double leftmax, double rightmax);
 	void ImplementGa();//执行遗传算法
 
+
+	Eigen::Vector3d translation;
+	Eigen::Matrix3d rotation;
+	Eigen::Matrix4d transformation;
+
+
 private:
 	bool preprogress;//判断平移点云和NS电云是否已计算
 
@@ -179,10 +185,6 @@ private:
 	//double alpha;
 	//double beta;
 	//double gama;
-
-	Eigen::Vector3d translation;
-	Eigen::Matrix3d rotation;
-	Eigen::Matrix4d transformation;
 
 	//GA
 	double Curve(Chromo input);//解码---x->F(x)

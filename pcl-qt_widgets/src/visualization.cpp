@@ -25,6 +25,7 @@ Visualization::Visualization(QString filename, QString filename_data)
 	search_radius = 0.3;
 	normal_level = 100;
 	normal_scale = 0.0;
+	rotation = { 0.0, 0.0, 0.0 };
 }
 
 
@@ -125,6 +126,9 @@ Visualization::preview(QString filename, QString filename_data)
 			break;
 		case 6:
 			computeEGI();
+			break;
+		case 7:
+			registration();
 			break;
 		default:
 			break;
@@ -580,4 +584,64 @@ Visualization::computeEGI()
 	//record->progressBarUpdate(100);
 
 	return true;
+}
+
+bool
+Visualization::registration()
+{
+	viewer->removeAllPointClouds();
+	int v1(1);
+	int v2(2);
+	int v3(3);
+	int v4(4);
+	viewer->createViewPort(0.0, 0.0, 0.5, 0.5, v3);
+	viewer->createViewPort(0.5, 0.0, 1.0, 0.5, v4);
+	viewer->createViewPort(0.0, 0.5, 0.5, 1.0, v1);
+	viewer->createViewPort(0.5, 0.5, 1.0, 1.0, v2);
+
+	viewer->setBackgroundColor(0, 0, 0, v1);
+	viewer->setBackgroundColor(0.1, 0.1, 0.1, v2);
+	viewer->setBackgroundColor(0.1, 0.1, 0.1, v3);
+	viewer->setBackgroundColor(0, 0, 0, v4);
+
+	pcl::visualization::PointCloudColorHandlerCustom<PointT> green(original_model, 20, 180, 20);
+	viewer->addPointCloud(original_model, green, "model cloud", v1);
+
+	pcl::visualization::PointCloudColorHandlerCustom<PointT> red(original_data, 180, 20, 20);
+	viewer->addPointCloud(original_data, red, "data cloud", v2);
+
+	viewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, "model cloud");
+	viewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, "data cloud");
+	viewer->addCoordinateSystem(10.0, v1);
+	viewer->addCoordinateSystem(10.0, v2);
+	viewer->initCameraParameters();
+	computeCentroid();
+
+	EGIReg *nsReg = new EGIReg();
+	nsReg->setModel(original_model);
+	nsReg->setData(original_data);
+	nsReg->ns_visualization();
+	nsReg->translationEstimate();
+
+	Eigen::AngleAxisd rollAngle(rotation.at(2), Eigen::Vector3d::UnitZ());
+	Eigen::AngleAxisd yawAngle(rotation.at(1), Eigen::Vector3d::UnitY());
+	Eigen::AngleAxisd pitchAngle(rotation.at(0), Eigen::Vector3d::UnitX());
+	Eigen::Quaternion<double> q = rollAngle * yawAngle * pitchAngle;
+	Eigen::Matrix3d rotationMatrix = q.matrix();
+
+	Eigen::Matrix4d transformation_matrix = Eigen::Matrix4d::Identity();
+	Eigen::Affine3d r(rotationMatrix);
+	Eigen::Affine3d t(Eigen::Translation3d(0.0, 0.0, 0.0));
+	transformation_matrix = (t * r).matrix();
+
+	viewer->addPointCloud(nsReg->model_normal_sphere, green, "model", v3);
+	viewer->addPointCloud(nsReg->data_normal_sphere, red, "data", v4);
+
+	pcl::transformPointCloud(*cloud_data, *cloud_out, transformation_matrix, true);
+	*cloud_data = *cloud_out;
+	viewer->updatePointCloud(cloud_data, red, "data cloud");
+
+	pcl::transformPointCloud(*nsReg->data_normal_sphere, *cloud_out, transformation_matrix, true);
+	*nsReg->data_normal_sphere = *cloud_out;
+	viewer->updatePointCloud(nsReg->data_normal_sphere, red, "data");
 }

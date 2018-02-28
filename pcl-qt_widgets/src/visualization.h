@@ -62,6 +62,9 @@ public:
 
 	bool computeEGI();
 
+	std::vector<double> rotation;
+	bool registration();
+
 
 signals:
 	void finished();

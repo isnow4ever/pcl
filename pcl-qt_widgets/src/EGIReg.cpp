@@ -290,7 +290,7 @@ void
 EGIReg::search(Eigen::Matrix4d &transformation)
 {
 	Init(5, 0.8, 1, 50, 0.5, -PI, PI);
-	ImplementGa();
+	//ImplementGa();
 
 	double omega, fai, kappa;
 	omega = popOperation.fitnessChromo.vecGenome[0];
