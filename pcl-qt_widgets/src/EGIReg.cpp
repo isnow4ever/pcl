@@ -283,6 +283,32 @@ EGIReg::ns_visualization()
 	//translationEstimate();
 	normalSphereCompute(model_trans, model_normal_sphere);
 	normalSphereCompute(data_trans, data_normal_sphere);
+
+	QFile file1("normals_model.txt");
+	if (!file1.open(QIODevice::Truncate | QFile::ReadWrite | QFile::Text))
+		emit record->statusUpdate("can't open normals_model.txt");
+	QTextStream in1(&file1);
+	int size1 = model_normal_sphere->size();
+	for (int i = 0; i < size1; i++)
+	{
+		in1 << model_normal_sphere->points[i].x / 100 << " "
+			<< model_normal_sphere->points[i].y / 100 << " "
+			<< model_normal_sphere->points[i].z / 100 << endl;
+	}
+	file1.close();
+
+	QFile file2("normals_data.txt");
+	if (!file2.open(QIODevice::Truncate | QFile::ReadWrite | QFile::Text))
+		emit record->statusUpdate("can't open normals_data.txt");
+	QTextStream in2(&file2);
+	int size2 = data_normal_sphere->size();
+	for (int i = 0; i < size2; i++)
+	{
+		in2 << data_normal_sphere->points[i].x / 100 << " "
+			<< data_normal_sphere->points[i].y / 100 << " "
+			<< data_normal_sphere->points[i].z / 100 << endl;
+	}
+	file2.close();
 	//preprogress = true;
 }
 
