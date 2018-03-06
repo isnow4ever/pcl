@@ -28,6 +28,7 @@ MainWindow::MainWindow(QWidget *parent) :
 	connect(ui->pushButton_9, SIGNAL(clicked()), this, SLOT(onFilterNDownsampling()));
 	connect(ui->pushButton_10, SIGNAL(clicked()), this, SLOT(onComputeEGI()));
 	connect(ui->pushButton_11, SIGNAL(clicked()), this, SLOT(onRegistration()));
+	connect(ui->pushButton_12, SIGNAL(clicked()), this, SLOT(onInitialAlignment()));
 
 	ui->progressBar->setRange(0, 100);
 	ui->progressBar->setValue(0);
@@ -39,6 +40,7 @@ MainWindow::MainWindow(QWidget *parent) :
 	ui->pushButton_9->setEnabled(false);
 	ui->pushButton_10->setEnabled(false);
 	ui->pushButton_11->setEnabled(false);
+	ui->pushButton_12->setEnabled(false);
 
 	ui->spinBox_2->setValue(100);
 	ui->doubleSpinBox->setValue(20.0);
@@ -163,6 +165,8 @@ MainWindow::onViewerOff()
 
 	ui->pushButton_11->setEnabled(false);
 
+	ui->pushButton_12->setEnabled(false);
+
 }
 
 void
@@ -178,6 +182,7 @@ MainWindow::onPreviewOpenSlot()
 		ui->pushButton_9->setEnabled(true);
 		ui->pushButton_10->setEnabled(true);
 		ui->pushButton_11->setEnabled(true);
+		ui->pushButton_12->setEnabled(true);
 	}
 		
 	visualization = new Visualization(fileName_Model, fileName_Data);
@@ -241,4 +246,10 @@ MainWindow::onRegistration()
 	visualization->rotation.at(1) = ui->doubleSpinBox_4->value();
 	visualization->rotation.at(2) = ui->doubleSpinBox_5->value();
 	visualization->feature_id = 7;
+}
+
+void
+MainWindow::onInitialAlignment()
+{
+	visualization->feature_id = 8;
 }

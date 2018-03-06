@@ -14,13 +14,15 @@ set  (project_SOURCES src/main.cpp
 					  src/ICPReg.cpp
 					  src/EGIReg.cpp
 					  src/visualization.cpp
-					  src/record.cpp)
+					  src/record.cpp
+					  src/Sac_IA.cpp)
 set  (project_HEADERS src/res.h
 	                  src/mainwindow.h
 					  src/ICPReg.h
 					  src/EGIReg.h
 					  src/visualization.h
-					  src/record.h)
+					  src/record.h
+					  src/Sac_IA.h)
 set  (project_FORMS   src/mainwindow.ui)
 
 # Find includes in corresponding build directories

@@ -65,6 +65,8 @@ public:
 	std::vector<double> rotation;
 	bool registration();
 
+	bool initialAlignment();
+
 
 signals:
 	void finished();

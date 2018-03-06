@@ -1,5 +1,6 @@
 #include "visualization.h"
 #include "EGIReg.h"
+#include "Sac_IA.h"
 #include <Eigen/Geometry> 
 
 #define ICO_X .525731112119133606
@@ -137,6 +138,9 @@ Visualization::preview(QString filename, QString filename_data)
 			break;
 		case 7:
 			registration();
+			break;
+		case 8:
+			initialAlignment(); 
 			break;
 		default:
 			break;
@@ -652,4 +656,55 @@ Visualization::registration()
 	pcl::transformPointCloud(*nsReg->data_normal_sphere, *cloud_out, transformation_matrix, true);
 	*nsReg->data_normal_sphere = *cloud_out;
 	viewer->updatePointCloud(nsReg->data_normal_sphere, red, "data");
+}
+
+bool
+Visualization::initialAlignment()
+{
+	const double FILTER_LIMIT = 1000.0;
+	const int MAX_SACIA_ITERATIONS = 2000;
+
+	const float VOXEL_GRID_SIZE = 3;
+	const double NORMALS_RADIUS = 20;
+	const double FEATURES_RADIUS = 50;
+	const double SAC_MAX_CORRESPONDENCE_DIST = 2000;
+	const double SAC_MIN_CORRESPONDENCE_DIST = 3;
+
+	Sac_IA *ia = new Sac_IA();
+
+	// open the clouds
+	pcl::PointCloud<pcl::PointXYZ>::Ptr cloud1(new pcl::PointCloud<pcl::PointXYZ>);
+	pcl::PointCloud<pcl::PointXYZ>::Ptr cloud2(new pcl::PointCloud<pcl::PointXYZ>);
+
+	pcl::io::loadPLYFile("pcd/blade_model.ply", *cloud1);
+	pcl::io::loadPLYFile("pcd/blade_data.ply", *cloud2);
+
+	// downsample the clouds
+	pcl::PointCloud<pcl::PointXYZ>::Ptr cloud1ds(new pcl::PointCloud<pcl::PointXYZ>);
+	pcl::PointCloud<pcl::PointXYZ>::Ptr cloud2ds(new pcl::PointCloud<pcl::PointXYZ>);
+
+	ia->voxelFilter(cloud1, cloud1ds, VOXEL_GRID_SIZE);
+	ia->voxelFilter(cloud2, cloud2ds, VOXEL_GRID_SIZE);
+
+	// compute normals
+	pcl::PointCloud<pcl::Normal>::Ptr normals1 = ia->getNormals(cloud1ds, NORMALS_RADIUS);
+	pcl::PointCloud<pcl::Normal>::Ptr normals2 = ia->getNormals(cloud2ds, NORMALS_RADIUS);
+
+	// compute local features
+	pcl::PointCloud<pcl::FPFHSignature33>::Ptr features1 = ia->getFeatures(cloud1ds, normals1, FEATURES_RADIUS);
+	pcl::PointCloud<pcl::FPFHSignature33>::Ptr features2 = ia->getFeatures(cloud2ds, normals2, FEATURES_RADIUS);
+
+	// 
+	auto sac_ia = ia->align(cloud1ds, cloud2ds, features1, features2,
+		MAX_SACIA_ITERATIONS, SAC_MIN_CORRESPONDENCE_DIST, SAC_MAX_CORRESPONDENCE_DIST);
+
+	Eigen::Matrix4f init_transform = sac_ia.getFinalTransformation();
+	pcl::transformPointCloud(*cloud2, *cloud2, init_transform);
+	pcl::PointCloud<pcl::PointXYZ> final = *cloud1;
+	final += *cloud2;
+
+	ia->viewPair(cloud1ds, cloud2ds, cloud1, cloud2);
+	pcl::io::savePCDFile("result.pcd", final);
+	//view(final);
+	return true;
 }
