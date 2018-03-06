@@ -56,7 +56,13 @@ Visualization::preview(QString filename, QString filename_data)
 			record->statusUpdate("Cannot open ply file!");
 		}
 	}
-	*original_model = *cloud;
+	//VoxelGrid Filter Downsampling
+	pcl::VoxelGrid<PointT> grid;
+	const float leaf = 0.1f;
+	grid.setLeafSize(leaf, leaf, leaf);
+	grid.setInputCloud(cloud);
+	grid.filter(*original_model);
+	//*original_model = *cloud;
 	if (filename_data.endsWith(".pcd"))
 	{
 		if (!pcl::io::loadPCDFile(file_name_data, *cloud_data))
@@ -71,7 +77,9 @@ Visualization::preview(QString filename, QString filename_data)
 			record->statusUpdate("Cannot open ply file!");
 		}
 	}
-	*original_data = *cloud_data;
+	grid.setInputCloud(cloud_data);
+	grid.filter(*original_data);
+	//*original_data = *cloud_data;
 
 	//display number of points
 	record->info = QString("model size: "
@@ -623,9 +631,9 @@ Visualization::registration()
 	nsReg->ns_visualization();
 	nsReg->translationEstimate();
 
-	Eigen::AngleAxisd rollAngle(rotation.at(2), Eigen::Vector3d::UnitZ());
+	Eigen::AngleAxisd rollAngle(rotation.at(0), Eigen::Vector3d::UnitZ());
 	Eigen::AngleAxisd yawAngle(rotation.at(1), Eigen::Vector3d::UnitY());
-	Eigen::AngleAxisd pitchAngle(rotation.at(0), Eigen::Vector3d::UnitX());
+	Eigen::AngleAxisd pitchAngle(rotation.at(2), Eigen::Vector3d::UnitX());
 	Eigen::Quaternion<double> q = rollAngle * yawAngle * pitchAngle;
 	Eigen::Matrix3d rotationMatrix = q.matrix();
 
