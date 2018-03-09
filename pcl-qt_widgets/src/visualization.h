@@ -65,6 +65,9 @@ public:
 	std::vector<double> rotation;
 	bool registration();
 
+	bool initialAlignment();
+
+	bool sacSegment();
 
 signals:
 	void finished();

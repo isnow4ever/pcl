@@ -1,9 +1,18 @@
 #include "visualization.h"
 #include "EGIReg.h"
+#include "Sac_IA.h"
 #include <Eigen/Geometry> 
+#include <Eigen/src/Core/IO.h>
+
+#include <pcl/segmentation/sac_segmentation.h>
+#include <pcl/search/kdtree.h>
+#include <pcl/filters/passthrough.h>
+#include <pcl/filters/extract_indices.h>
 
 #define ICO_X .525731112119133606
 #define ICO_Z .850650808352039932
+
+using namespace pcl::visualization;
 
 Visualization::Visualization(QString filename, QString filename_data)
 	:filename(filename), filename_data(filename_data)
@@ -138,6 +147,11 @@ Visualization::preview(QString filename, QString filename_data)
 		case 7:
 			registration();
 			break;
+		case 8:
+			initialAlignment(); 
+			break;
+		case 9:
+			sacSegment();
 		default:
 			break;
 		}
@@ -652,4 +666,144 @@ Visualization::registration()
 	pcl::transformPointCloud(*nsReg->data_normal_sphere, *cloud_out, transformation_matrix, true);
 	*nsReg->data_normal_sphere = *cloud_out;
 	viewer->updatePointCloud(nsReg->data_normal_sphere, red, "data");
+}
+
+bool
+Visualization::initialAlignment()
+{
+	const double FILTER_LIMIT = 1000.0;
+	const int MAX_SACIA_ITERATIONS = 2000;
+
+	const float VOXEL_GRID_SIZE = 3;
+	const double NORMALS_RADIUS = 20;
+	const double FEATURES_RADIUS = 50;
+	const double SAC_MAX_CORRESPONDENCE_DIST = 2000;
+	const double SAC_MIN_CORRESPONDENCE_DIST = 3;
+	Sac_IA *ia = new Sac_IA();
+
+	pcl_time.tic();
+	// downsample the clouds
+	record->statusUpdate("downsample the clouds...");
+	pcl::PointCloud<pcl::PointXYZ>::Ptr cloud1ds(new pcl::PointCloud<pcl::PointXYZ>);
+	pcl::PointCloud<pcl::PointXYZ>::Ptr cloud2ds(new pcl::PointCloud<pcl::PointXYZ>);
+
+	ia->voxelFilter(original_model, cloud1ds, VOXEL_GRID_SIZE);
+	ia->voxelFilter(original_data, cloud2ds, VOXEL_GRID_SIZE);
+
+	record->progressBarUpdate(10);
+	
+
+	// compute normals
+	record->statusUpdate("compute normals...");
+	pcl::PointCloud<pcl::Normal>::Ptr normals1 = ia->getNormals(cloud1ds, NORMALS_RADIUS);
+	pcl::PointCloud<pcl::Normal>::Ptr normals2 = ia->getNormals(cloud2ds, NORMALS_RADIUS);
+
+	record->progressBarUpdate(25);
+
+	// compute local features
+	record->statusUpdate("compute local features...");
+	pcl::PointCloud<pcl::FPFHSignature33>::Ptr features1 = ia->getFeatures(cloud1ds, normals1, FEATURES_RADIUS);
+	pcl::PointCloud<pcl::FPFHSignature33>::Ptr features2 = ia->getFeatures(cloud2ds, normals2, FEATURES_RADIUS);
+
+	record->progressBarUpdate(50);
+
+	// initial alignment
+	record->statusUpdate("alignment...");
+	auto sac_ia = ia->align(cloud1ds, cloud2ds, features1, features2,
+		MAX_SACIA_ITERATIONS, SAC_MIN_CORRESPONDENCE_DIST, SAC_MAX_CORRESPONDENCE_DIST);
+
+	record->progressBarUpdate(90);
+
+	Eigen::Matrix4f init_transform = sac_ia.getFinalTransformation();
+	pcl::transformPointCloud(*original_data, *original_data, init_transform);
+	//pcl::pointcloud<pcl::pointxyz> final = *cloud1;
+	//final += *cloud2;
+	record->progressBarUpdate(100);
+	record->statusUpdate("completed in " + QString::number(pcl_time.toc()) + "ms;");
+	std::stringstream trans;
+	Eigen::IOFormat OctaveFmt(Eigen::StreamPrecision, 0, ", ", ";\n", "", "", "[", "]");
+	trans << init_transform.format(OctaveFmt);
+	record->infoRec(QString::fromStdString(trans.str()));
+	int v1(0), v2(0);
+	viewer->createViewPort(0.0, 0.0, 0.5, 1.0, v1);
+	viewer->setBackgroundColor(0, 0, 0, v1);
+	viewer->addText("Before Alignment", 10, 10, "v1 text", v1);
+	PointCloudColorHandlerCustom<PointXYZ> green(cloud1ds, 0, 255, 0);
+	PointCloudColorHandlerCustom<PointXYZ> red(cloud2ds, 255, 0, 0);
+	viewer->addPointCloud(cloud1ds, green, "v1_target", v1);
+	viewer->addPointCloud(cloud2ds, red, "v1_sourse", v1);
+
+	viewer->createViewPort(0.5, 0.0, 1.0, 1.0, v2);
+	viewer->setBackgroundColor(0, 0, 0, v2);
+	viewer->addText("After Alignment", 10, 10, "v2 text", v2);
+	PointCloudColorHandlerCustom<PointXYZ> green2(original_model, 0, 255, 0);
+	PointCloudColorHandlerCustom<PointXYZ> red2(original_data, 255, 0, 0);
+	viewer->addPointCloud(original_model, green2, "v2_target", v2);
+	viewer->addPointCloud(original_data, red2, "v2_sourse", v2);
+	viewer->spin();
+
+	//ia->viewPair(cloud1ds, cloud2ds, cloud1, cloud2);
+	//pcl::io::savePCDFile("result.pcd", final);
+	//view(final);
+	return true;
+}
+
+bool
+Visualization::sacSegment()
+{
+	pcl::PointCloud<pcl::PointXYZ>::Ptr datum_plane(new pcl::PointCloud<pcl::PointXYZ>);
+	pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_target(new pcl::PointCloud<pcl::PointXYZ>);
+	PointCloudN::Ptr normals(new PointCloudN);
+
+	pcl::NormalEstimation<pcl::PointXYZ, pcl::Normal> ne;
+	ne.setInputCloud(original_data);
+
+	// Create an empty kdtree representation, and pass it to the normal estimation object.
+	// Its content will be filled inside the object, based on the given input dataset (as no other search surface is given).
+	pcl::search::KdTree<pcl::PointXYZ>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZ>());
+	ne.setSearchMethod(tree);
+
+	// Output datasets
+	//PointCloudN::Ptr cloud_normals(new PointCloudN);
+
+	// Use all neighbors in a sphere of radius 3cm
+	ne.setRadiusSearch(1);
+	//ne.setViewPoint(0, 0, 0);
+	// Compute the features
+	ne.compute(*normals);
+
+	// segmentation
+	pcl::ModelCoefficients::Ptr coefficients(new pcl::ModelCoefficients);
+	pcl::PointIndices::Ptr inliers(new pcl::PointIndices);
+
+	pcl::SACSegmentationFromNormals<pcl::PointXYZ, pcl::Normal> sac;
+	sac.setInputCloud(original_data);    // cloud_source_filtered 为提取桌子表面 cloud_source 为提取地面
+	sac.setInputNormals(normals);
+	sac.setMethodType(pcl::SAC_RANSAC);
+	sac.setModelType(pcl::SACMODEL_NORMAL_PLANE);
+	sac.setNormalDistanceWeight(0.1);
+	sac.setDistanceThreshold(0.1);
+	sac.setMaxIterations(100);
+	sac.setProbability(0.95);
+
+	sac.segment(*inliers, *coefficients);
+
+	// extract the certain field
+	pcl::ExtractIndices<pcl::PointXYZ> ei;
+	ei.setIndices(inliers);
+	ei.setInputCloud(original_data);    // cloud_source_filtered 为提取桌子表面 cloud_source 为提取地面
+	ei.filter(*cloud_target);
+
+	// display
+	pcl::visualization::PCLVisualizer p;
+	pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> tgt_h(cloud_target, 255, 0, 0);
+	p.addPointCloud(cloud_target, tgt_h, "target");
+	p.spinOnce();
+
+	pcl::visualization::PCLVisualizer p2;
+	pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> src_h(original_data, 0, 255, 0);
+	p2.addPointCloud(original_data, src_h, "source");
+	p2.spin();
+
+	return true;
 }

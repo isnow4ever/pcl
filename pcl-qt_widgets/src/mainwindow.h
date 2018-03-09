@@ -70,6 +70,8 @@ private slots:
 	void onFilterNDownsampling();
 	void onComputeEGI();
 	void onRegistration();
+	void onInitialAlignment();
+	void onSACSegment();
 };
 
 #endif // MAINWINDOW_H
