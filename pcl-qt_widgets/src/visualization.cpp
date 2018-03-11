@@ -9,6 +9,7 @@
 #include <pcl/filters/passthrough.h>
 #include <pcl/filters/extract_indices.h>
 #include <pcl/segmentation/organized_multi_plane_segmentation.h>
+#include <pcl/segmentation/region_growing.h>
 
 #define ICO_X .525731112119133606
 #define ICO_Z .850650808352039932
@@ -752,6 +753,7 @@ Visualization::initialAlignment()
 bool
 Visualization::sacSegment()
 {
+	qDebug("s1");
 	pcl::PointCloud<pcl::PointXYZ>::Ptr datum_plane(new pcl::PointCloud<pcl::PointXYZ>);
 	pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_target(new pcl::PointCloud<pcl::PointXYZ>);
 	PointCloudN::Ptr normals(new PointCloudN);
@@ -772,48 +774,40 @@ Visualization::sacSegment()
 	//ne.setViewPoint(0, 0, 0);
 	// Compute the features
 	ne.compute(*normals);
-
+	qDebug("s2");
 	// segmentation
 	pcl::ModelCoefficients::Ptr coefficients(new pcl::ModelCoefficients);
 	pcl::PointIndices::Ptr inliers(new pcl::PointIndices);
 
-	//pcl::SACSegmentationFromNormals<pcl::PointXYZ, pcl::Normal> sac;
-	//sac.setInputCloud(original_data);    // cloud_source_filtered 为提取桌子表面 cloud_source 为提取地面
-	//sac.setInputNormals(normals);
-	//sac.setMethodType(pcl::SAC_RANSAC);
-	//sac.setModelType(pcl::SACMODEL_NORMAL_PLANE);
-	//sac.setNormalDistanceWeight(0.1);
-	//sac.setDistanceThreshold(0.1);
-	//sac.setMaxIterations(100);
-	//sac.setProbability(0.95);
+	pcl::SACSegmentationFromNormals<pcl::PointXYZ, pcl::Normal> sac;
+	sac.setInputCloud(original_data);    // cloud_source_filtered 为提取桌子表面 cloud_source 为提取地面
+	sac.setInputNormals(normals);
+	sac.setMethodType(pcl::SAC_RANSAC);
+	sac.setModelType(pcl::SACMODEL_NORMAL_PLANE);
+	sac.setNormalDistanceWeight(0.1);
+	sac.setDistanceThreshold(0.1);
+	sac.setMaxIterations(100);
+	sac.setProbability(0.95);
 
-	//sac.segment(*inliers, *coefficients);
+	sac.segment(*inliers, *coefficients);
 
-	//// extract the certain field
-	//pcl::ExtractIndices<pcl::PointXYZ> ei;
-	//ei.setIndices(inliers);
-	//ei.setInputCloud(original_data);    // cloud_source_filtered 为提取桌子表面 cloud_source 为提取地面
-	//ei.filter(*cloud_target);
+	// extract the certain field
+	pcl::ExtractIndices<pcl::PointXYZ> ei;
+	ei.setIndices(inliers);
+	ei.setInputCloud(original_data);    // cloud_source_filtered 为提取桌子表面 cloud_source 为提取地面
+	ei.filter(*cloud_target);
 
-	//// display
-	//pcl::visualization::PCLVisualizer p;
-	//pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> tgt_h(cloud_target, 255, 0, 0);
-	//p.addPointCloud(cloud_target, tgt_h, "target");
-	//p.spinOnce();
+	// display
+	pcl::visualization::PCLVisualizer p;
+	pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> tgt_h(cloud_target, 255, 0, 0);
+	p.addPointCloud(cloud_target, tgt_h, "target");
+	p.spinOnce();
 
-	//pcl::visualization::PCLVisualizer p2;
-	//pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> src_h(original_data, 0, 255, 0);
-	//p2.addPointCloud(original_data, src_h, "source");
-	//p2.spin();
+	pcl::visualization::PCLVisualizer p2;
+	pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> src_h(original_data, 0, 255, 0);
+	p2.addPointCloud(original_data, src_h, "source");
+	p2.spin();
 
-	pcl::OrganizedMultiPlaneSegmentation<pcl::PointXYZ, pcl::Normal, pcl::Label>mps; //Error 
-	mps.setMinInliers(1000);
-	mps.setAngularThreshold(0.017453*2.0);
-	mps.setDistanceThreshold(0.02);
-	mps.setInputNormals(normals);
-	mps.setInputCloud(original_data);
-	std::vector<pcl::PlanarRegion<PointT>, Eigen::aligned_allocator<pcl::PlanarRegion<PointT> > > regions;
-	mps.segmentAndRefine(regions); //Error
 
 	return true;
 }
