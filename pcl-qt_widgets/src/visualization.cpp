@@ -783,8 +783,10 @@ Visualization::sacSegment()
 	sac.setInputCloud(original_data);    // cloud_source_filtered 为提取桌子表面 cloud_source 为提取地面
 	sac.setInputNormals(normals);
 	sac.setMethodType(pcl::SAC_RANSAC);
-	sac.setModelType(pcl::SACMODEL_NORMAL_PLANE);
-	sac.setNormalDistanceWeight(0.1);
+	sac.setModelType(pcl::SACMODEL_PERPENDICULAR_PLANE);
+	//sac.setNormalDistanceWeight(0.1);
+	sac.setAxis(Eigen::Vector3f(0, 1, 0));
+	sac.setEpsAngle(0.1);
 	sac.setDistanceThreshold(0.1);
 	sac.setMaxIterations(100);
 	sac.setProbability(0.95);
