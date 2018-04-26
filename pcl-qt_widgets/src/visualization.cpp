@@ -9,6 +9,7 @@
 #include <pcl/filters/passthrough.h>
 #include <pcl/filters/extract_indices.h>
 #include <pcl/segmentation/organized_multi_plane_segmentation.h>
+#include <pcl/segmentation/region_growing.h>
 
 #define ICO_X .525731112119133606
 #define ICO_Z .850650808352039932
@@ -58,7 +59,7 @@ Visualization::preview(QString filename, QString filename_data)
 		{
 			record->statusUpdate("Cannot open pcd file!");
 		}
-	}			
+	}
 	else if (filename.endsWith(".ply"))
 	{
 		if (!pcl::io::loadPLYFile(file_name, *cloud))
@@ -112,8 +113,8 @@ Visualization::preview(QString filename, QString filename_data)
 	viewer->setBackgroundColor(0, 0, 0, v1);
 	viewer->setBackgroundColor(0.1, 0.1, 0.1, v2);
 	pcl::visualization::PointCloudColorHandlerCustom<PointT> green(cloud, 20, 180, 20);
-	viewer->addPointCloud(cloud, green, "model cloud",v1);
-	
+	viewer->addPointCloud(cloud, green, "model cloud", v1);
+
 	pcl::visualization::PointCloudColorHandlerCustom<PointT> red(cloud_data, 180, 20, 20);
 	viewer->addPointCloud(cloud_data, red, "data cloud", v2);
 
@@ -121,7 +122,7 @@ Visualization::preview(QString filename, QString filename_data)
 	viewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, "data cloud");
 	viewer->addCoordinateSystem(10.0);
 	viewer->initCameraParameters();
-	
+
 
 	while (!viewer->wasStopped())
 	{
@@ -149,7 +150,7 @@ Visualization::preview(QString filename, QString filename_data)
 			registration();
 			break;
 		case 8:
-			initialAlignment(); 
+			initialAlignment();
 			break;
 		case 9:
 			sacSegment();
@@ -265,13 +266,13 @@ Visualization::computeKdtree()
 			}
 			meanDistance.push_back(distance / k);
 			indices.push_back(i);
-			record->progressBarUpdate(int(100*i/size));
+			record->progressBarUpdate(int(100 * i / size));
 		}
 	}
 	QFile file("kdtree_data.txt");
 	if (!file.open(QIODevice::Truncate | QFile::ReadWrite | QFile::Text))
 		emit record->statusUpdate("can't open kdtree_data.txt");
-	QTextStream in(&file);	
+	QTextStream in(&file);
 	for (int i = 0; i < indices.size(); i++)
 	{
 		in << indices.at(i) << " " << meanDistance.at(i) << endl;
@@ -297,7 +298,7 @@ Visualization::computeCentroid()
 	//}
 	//ss << std::endl;
 	//record->infoRec(QString::fromStdString(ss.str()));
-	
+
 	//transform point cloud
 	//Eigen::Transform<float, 3, Eigen::Affine> transformation_matrix;
 	Eigen::Matrix4f transformation_matrix = Eigen::Matrix4f::Identity();
@@ -373,11 +374,11 @@ Visualization::computeNormals()
 	// Compute the 3x3 covariance matrix
 	//Eigen::Matrix3f covariance_matrix;
 	//pcl::computeCovarianceMatrix(cloud, xyz_centroid, covariance_matrix);
-	
+
 	PointCloudN::Ptr cloud_data_normals(new PointCloudN);
 	ne.setInputCloud(cloud_data);
 	ne.compute(*cloud_data_normals);
-	viewer->addPointCloudNormals<pcl::PointXYZ, pcl::Normal>(cloud_data, cloud_data_normals, normal_level, normal_scale,"data normals", 2);
+	viewer->addPointCloudNormals<pcl::PointXYZ, pcl::Normal>(cloud_data, cloud_data_normals, normal_level, normal_scale, "data normals", 2);
 
 	//QFile file("normals_data.txt");
 	//if (!file.open(QIODevice::Truncate | QFile::ReadWrite | QFile::Text))
@@ -471,7 +472,7 @@ Visualization::computeEGI()
 
 	viewer->addPointCloud(nsReg->model_normal_sphere, green, "model", v3);
 	viewer->addPointCloud(nsReg->data_normal_sphere, red, "data", v4);
-	
+
 	nsReg->search(tf);
 	//double corr = nsReg->computeCorrelation(0.5, 0.5, 0.5);
 
@@ -692,7 +693,7 @@ Visualization::initialAlignment()
 	ia->voxelFilter(original_data, cloud2ds, VOXEL_GRID_SIZE);
 
 	record->progressBarUpdate(10);
-	
+
 
 	// compute normals
 	record->statusUpdate("compute normals...");
@@ -725,6 +726,21 @@ Visualization::initialAlignment()
 	Eigen::IOFormat OctaveFmt(Eigen::StreamPrecision, 0, ", ", ";\n", "", "", "[", "]");
 	trans << init_transform.format(OctaveFmt);
 	record->infoRec(QString::fromStdString(trans.str()));
+	//===========================================================//
+
+	pcl::ModelCoefficients::Ptr coeff_data(new pcl::ModelCoefficients);
+	pcl::ModelCoefficients::Ptr coeff_model(new pcl::ModelCoefficients);
+	PointCloudT::Ptr datum_data(new PointCloudT);
+	PointCloudT::Ptr datum_model(new PointCloudT);
+
+	computeDatumCoefficients(original_data, datum_data, coeff_data);
+	computeDatumCoefficients(original_model, datum_model, coeff_model);
+
+	qDebug("datum plane of data: %f, %f, %f, %f\n", coeff_data->values[0], coeff_data->values[1], coeff_data->values[2], coeff_data->values[3]);
+	qDebug("datum plane of model: %f, %f, %f, %f\n", coeff_model->values[0], coeff_model->values[1], coeff_model->values[2], coeff_model->values[3]);
+
+	//===========================================================//
+
 	int v1(0), v2(0);
 	viewer->createViewPort(0.0, 0.0, 0.5, 1.0, v1);
 	viewer->setBackgroundColor(0, 0, 0, v1);
@@ -739,8 +755,12 @@ Visualization::initialAlignment()
 	viewer->addText("After Alignment", 10, 10, "v2 text", v2);
 	PointCloudColorHandlerCustom<PointXYZ> green2(original_model, 0, 255, 0);
 	PointCloudColorHandlerCustom<PointXYZ> red2(original_data, 255, 0, 0);
-	viewer->addPointCloud(original_model, green2, "v2_target", v2);
-	viewer->addPointCloud(original_data, red2, "v2_sourse", v2);
+	viewer->addPointCloud(datum_model, green2, "v2_target", v2);
+	viewer->addPointCloud(datum_data, red2, "v2_sourse", v2);
+
+	//pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> tgt_h(datum_data, 255, 0, 255);
+	//viewer->addPointCloud(datum_data, tgt_h, "target", v2);
+
 	viewer->spin();
 
 	//ia->viewPair(cloud1ds, cloud2ds, cloud1, cloud2);
@@ -749,9 +769,67 @@ Visualization::initialAlignment()
 	return true;
 }
 
+void
+Visualization::computeDatumCoefficients(PointCloudT::Ptr cloud, PointCloudT::Ptr datum_plane, pcl::ModelCoefficients::Ptr coefficients)
+{
+	// Create the filtering object
+	pcl::PassThrough<pcl::PointXYZ> pass;
+	pass.setInputCloud(cloud);
+	pass.setFilterFieldName("z");
+	pass.setFilterLimits(-10, 10);
+	//pass.setFilterLimitsNegative (true);
+	pass.filter(*cloud);
+	//===========================================================//
+	PointCloudN::Ptr normals(new PointCloudN);
+
+	pcl::NormalEstimation<pcl::PointXYZ, pcl::Normal> ne;
+	ne.setInputCloud(cloud);
+
+	// Create an empty kdtree representation, and pass it to the normal estimation object.
+	// Its content will be filled inside the object, based on the given input dataset (as no other search surface is given).
+	pcl::search::KdTree<pcl::PointXYZ>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZ>());
+	ne.setSearchMethod(tree);
+
+	// Output datasets
+	//PointCloudN::Ptr cloud_normals(new PointCloudN);
+
+	// Use all neighbors in a sphere of radius 3cm
+	ne.setRadiusSearch(1);
+	//ne.setViewPoint(0, 0, 0);
+	// Compute the features
+	ne.compute(*normals);
+
+	// segmentation
+	//pcl::ModelCoefficients::Ptr coefficients(new pcl::ModelCoefficients);
+	pcl::PointIndices::Ptr inliers(new pcl::PointIndices);
+
+	pcl::SACSegmentationFromNormals<pcl::PointXYZ, pcl::Normal> sac;
+	sac.setInputCloud(cloud);    // cloud_source_filtered 为提取桌子表面 cloud_source 为提取地面
+	sac.setInputNormals(normals);
+	sac.setMethodType(pcl::SAC_RANSAC);
+	sac.setModelType(pcl::SACMODEL_PERPENDICULAR_PLANE);
+	//sac.setNormalDistanceWeight(0.1);
+	sac.setAxis(Eigen::Vector3f(0, 0, 1));
+	sac.setEpsAngle(0.1);
+	sac.setDistanceThreshold(0.1);
+	sac.setMaxIterations(100);
+	sac.setProbability(0.95);
+
+	sac.segment(*inliers, *coefficients);
+
+	// extract the certain field
+	pcl::ExtractIndices<pcl::PointXYZ> ei;
+	ei.setIndices(inliers);
+	ei.setInputCloud(cloud);    // cloud_source_filtered 为提取桌子表面 cloud_source 为提取地面
+	ei.filter(*datum_plane);
+
+	return;
+};
+
 bool
 Visualization::sacSegment()
 {
+	qDebug("s1");
 	pcl::PointCloud<pcl::PointXYZ>::Ptr datum_plane(new pcl::PointCloud<pcl::PointXYZ>);
 	pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_target(new pcl::PointCloud<pcl::PointXYZ>);
 	PointCloudN::Ptr normals(new PointCloudN);
@@ -772,48 +850,42 @@ Visualization::sacSegment()
 	//ne.setViewPoint(0, 0, 0);
 	// Compute the features
 	ne.compute(*normals);
-
+	qDebug("s2");
 	// segmentation
 	pcl::ModelCoefficients::Ptr coefficients(new pcl::ModelCoefficients);
 	pcl::PointIndices::Ptr inliers(new pcl::PointIndices);
 
-	//pcl::SACSegmentationFromNormals<pcl::PointXYZ, pcl::Normal> sac;
-	//sac.setInputCloud(original_data);    // cloud_source_filtered 为提取桌子表面 cloud_source 为提取地面
-	//sac.setInputNormals(normals);
-	//sac.setMethodType(pcl::SAC_RANSAC);
-	//sac.setModelType(pcl::SACMODEL_NORMAL_PLANE);
+	pcl::SACSegmentationFromNormals<pcl::PointXYZ, pcl::Normal> sac;
+	sac.setInputCloud(original_data);    // cloud_source_filtered 为提取桌子表面 cloud_source 为提取地面
+	sac.setInputNormals(normals);
+	sac.setMethodType(pcl::SAC_RANSAC);
+	sac.setModelType(pcl::SACMODEL_PERPENDICULAR_PLANE);
 	//sac.setNormalDistanceWeight(0.1);
-	//sac.setDistanceThreshold(0.1);
-	//sac.setMaxIterations(100);
-	//sac.setProbability(0.95);
+	sac.setAxis(Eigen::Vector3f(0, 1, 0));
+	sac.setEpsAngle(0.1);
+	sac.setDistanceThreshold(0.1);
+	sac.setMaxIterations(100);
+	sac.setProbability(0.95);
 
-	//sac.segment(*inliers, *coefficients);
+	sac.segment(*inliers, *coefficients);
 
-	//// extract the certain field
-	//pcl::ExtractIndices<pcl::PointXYZ> ei;
-	//ei.setIndices(inliers);
-	//ei.setInputCloud(original_data);    // cloud_source_filtered 为提取桌子表面 cloud_source 为提取地面
-	//ei.filter(*cloud_target);
+	// extract the certain field
+	pcl::ExtractIndices<pcl::PointXYZ> ei;
+	ei.setIndices(inliers);
+	ei.setInputCloud(original_data);    // cloud_source_filtered 为提取桌子表面 cloud_source 为提取地面
+	ei.filter(*cloud_target);
 
-	//// display
-	//pcl::visualization::PCLVisualizer p;
-	//pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> tgt_h(cloud_target, 255, 0, 0);
-	//p.addPointCloud(cloud_target, tgt_h, "target");
-	//p.spinOnce();
+	// display
+	pcl::visualization::PCLVisualizer p;
+	pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> tgt_h(cloud_target, 255, 0, 0);
+	p.addPointCloud(cloud_target, tgt_h, "target");
+	p.spinOnce();
 
-	//pcl::visualization::PCLVisualizer p2;
-	//pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> src_h(original_data, 0, 255, 0);
-	//p2.addPointCloud(original_data, src_h, "source");
-	//p2.spin();
+	pcl::visualization::PCLVisualizer p2;
+	pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> src_h(original_data, 0, 255, 0);
+	p2.addPointCloud(original_data, src_h, "source");
+	p2.spin();
 
-	pcl::OrganizedMultiPlaneSegmentation<pcl::PointXYZ, pcl::Normal, pcl::Label>mps; //Error 
-	mps.setMinInliers(1000);
-	mps.setAngularThreshold(0.017453*2.0);
-	mps.setDistanceThreshold(0.02);
-	mps.setInputNormals(normals);
-	mps.setInputCloud(original_data);
-	std::vector<pcl::PlanarRegion<PointT>, Eigen::aligned_allocator<pcl::PlanarRegion<PointT> > > regions;
-	mps.segmentAndRefine(regions); //Error
 
 	return true;
 }

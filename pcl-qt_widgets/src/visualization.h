@@ -67,21 +67,22 @@ public:
 
 	bool initialAlignment();
 
+	void computeDatumCoefficients(PointCloudT::Ptr, PointCloudT::Ptr, pcl::ModelCoefficients::Ptr);
+
 	bool sacSegment();
 
 signals:
 	void finished();
 
-public slots:
+	public slots:
 	void OnStarted();
 	//void kdtreeFlagToggle();
 	//void centroidFlagToggle();
 	void feature_id_slot(int);
 
 private:
-	
-//
-//protected:
-//	void run();
-};
 
+	//
+	//protected:
+	//	void run();
+};
