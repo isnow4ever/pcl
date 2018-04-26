@@ -67,6 +67,8 @@ public:
 
 	bool initialAlignment();
 
+	void computeDatumCoefficients(PointCloudT::Ptr, PointCloudT::Ptr, pcl::ModelCoefficients::Ptr);
+
 	bool sacSegment();
 
 signals:

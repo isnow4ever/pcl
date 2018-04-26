@@ -727,58 +727,19 @@ Visualization::initialAlignment()
 	trans << init_transform.format(OctaveFmt);
 	record->infoRec(QString::fromStdString(trans.str()));
 	//===========================================================//
-	// Create the filtering object
-	pcl::PassThrough<pcl::PointXYZ> pass;
-	pass.setInputCloud(original_data);
-	pass.setFilterFieldName("z");
-	pass.setFilterLimits(-10, 10);
-	//pass.setFilterLimitsNegative (true);
-	pass.filter(*original_data);
+
+	pcl::ModelCoefficients::Ptr coeff_data(new pcl::ModelCoefficients);
+	pcl::ModelCoefficients::Ptr coeff_model(new pcl::ModelCoefficients);
+	PointCloudT::Ptr datum_data(new PointCloudT);
+	PointCloudT::Ptr datum_model(new PointCloudT);
+
+	computeDatumCoefficients(original_data, datum_data, coeff_data);
+	computeDatumCoefficients(original_model, datum_model, coeff_model);
+
+	qDebug("datum plane of data: %f, %f, %f, %f\n", coeff_data->values[0], coeff_data->values[1], coeff_data->values[2], coeff_data->values[3]);
+	qDebug("datum plane of model: %f, %f, %f, %f\n", coeff_model->values[0], coeff_model->values[1], coeff_model->values[2], coeff_model->values[3]);
+
 	//===========================================================//
-	pcl::PointCloud<pcl::PointXYZ>::Ptr datum_plane(new pcl::PointCloud<pcl::PointXYZ>);
-	PointCloudN::Ptr normals(new PointCloudN);
-
-	pcl::NormalEstimation<pcl::PointXYZ, pcl::Normal> ne;
-	ne.setInputCloud(original_data);
-
-	// Create an empty kdtree representation, and pass it to the normal estimation object.
-	// Its content will be filled inside the object, based on the given input dataset (as no other search surface is given).
-	pcl::search::KdTree<pcl::PointXYZ>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZ>());
-	ne.setSearchMethod(tree);
-
-	// Output datasets
-	//PointCloudN::Ptr cloud_normals(new PointCloudN);
-
-	// Use all neighbors in a sphere of radius 3cm
-	ne.setRadiusSearch(1);
-	//ne.setViewPoint(0, 0, 0);
-	// Compute the features
-	ne.compute(*normals);
-	qDebug("s2");
-	// segmentation
-	pcl::ModelCoefficients::Ptr coefficients(new pcl::ModelCoefficients);
-	pcl::PointIndices::Ptr inliers(new pcl::PointIndices);
-
-	pcl::SACSegmentationFromNormals<pcl::PointXYZ, pcl::Normal> sac;
-	sac.setInputCloud(original_data);    // cloud_source_filtered 为提取桌子表面 cloud_source 为提取地面
-	sac.setInputNormals(normals);
-	sac.setMethodType(pcl::SAC_RANSAC);
-	sac.setModelType(pcl::SACMODEL_PERPENDICULAR_PLANE);
-	//sac.setNormalDistanceWeight(0.1);
-	sac.setAxis(Eigen::Vector3f(0, 0, 1));
-	sac.setEpsAngle(0.1);
-	sac.setDistanceThreshold(0.1);
-	sac.setMaxIterations(100);
-	sac.setProbability(0.95);
-
-	sac.segment(*inliers, *coefficients);
-
-	// extract the certain field
-	pcl::ExtractIndices<pcl::PointXYZ> ei;
-	ei.setIndices(inliers);
-	ei.setInputCloud(original_data);    // cloud_source_filtered 为提取桌子表面 cloud_source 为提取地面
-	ei.filter(*datum_plane);
-
 
 	int v1(0), v2(0);
 	viewer->createViewPort(0.0, 0.0, 0.5, 1.0, v1);
@@ -794,11 +755,11 @@ Visualization::initialAlignment()
 	viewer->addText("After Alignment", 10, 10, "v2 text", v2);
 	PointCloudColorHandlerCustom<PointXYZ> green2(original_model, 0, 255, 0);
 	PointCloudColorHandlerCustom<PointXYZ> red2(original_data, 255, 0, 0);
-	viewer->addPointCloud(original_model, green2, "v2_target", v2);
-	viewer->addPointCloud(original_data, red2, "v2_sourse", v2);
+	viewer->addPointCloud(datum_model, green2, "v2_target", v2);
+	viewer->addPointCloud(datum_data, red2, "v2_sourse", v2);
 
-	pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> tgt_h(datum_plane, 255, 0, 255);
-	viewer->addPointCloud(datum_plane, tgt_h, "target", v2);
+	//pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> tgt_h(datum_data, 255, 0, 255);
+	//viewer->addPointCloud(datum_data, tgt_h, "target", v2);
 
 	viewer->spin();
 
@@ -807,6 +768,63 @@ Visualization::initialAlignment()
 	//view(final);
 	return true;
 }
+
+void
+Visualization::computeDatumCoefficients(PointCloudT::Ptr cloud, PointCloudT::Ptr datum_plane, pcl::ModelCoefficients::Ptr coefficients)
+{
+	// Create the filtering object
+	pcl::PassThrough<pcl::PointXYZ> pass;
+	pass.setInputCloud(cloud);
+	pass.setFilterFieldName("z");
+	pass.setFilterLimits(-10, 10);
+	//pass.setFilterLimitsNegative (true);
+	pass.filter(*cloud);
+	//===========================================================//
+	PointCloudN::Ptr normals(new PointCloudN);
+
+	pcl::NormalEstimation<pcl::PointXYZ, pcl::Normal> ne;
+	ne.setInputCloud(cloud);
+
+	// Create an empty kdtree representation, and pass it to the normal estimation object.
+	// Its content will be filled inside the object, based on the given input dataset (as no other search surface is given).
+	pcl::search::KdTree<pcl::PointXYZ>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZ>());
+	ne.setSearchMethod(tree);
+
+	// Output datasets
+	//PointCloudN::Ptr cloud_normals(new PointCloudN);
+
+	// Use all neighbors in a sphere of radius 3cm
+	ne.setRadiusSearch(1);
+	//ne.setViewPoint(0, 0, 0);
+	// Compute the features
+	ne.compute(*normals);
+
+	// segmentation
+	//pcl::ModelCoefficients::Ptr coefficients(new pcl::ModelCoefficients);
+	pcl::PointIndices::Ptr inliers(new pcl::PointIndices);
+
+	pcl::SACSegmentationFromNormals<pcl::PointXYZ, pcl::Normal> sac;
+	sac.setInputCloud(cloud);    // cloud_source_filtered 为提取桌子表面 cloud_source 为提取地面
+	sac.setInputNormals(normals);
+	sac.setMethodType(pcl::SAC_RANSAC);
+	sac.setModelType(pcl::SACMODEL_PERPENDICULAR_PLANE);
+	//sac.setNormalDistanceWeight(0.1);
+	sac.setAxis(Eigen::Vector3f(0, 0, 1));
+	sac.setEpsAngle(0.1);
+	sac.setDistanceThreshold(0.1);
+	sac.setMaxIterations(100);
+	sac.setProbability(0.95);
+
+	sac.segment(*inliers, *coefficients);
+
+	// extract the certain field
+	pcl::ExtractIndices<pcl::PointXYZ> ei;
+	ei.setIndices(inliers);
+	ei.setInputCloud(cloud);    // cloud_source_filtered 为提取桌子表面 cloud_source 为提取地面
+	ei.filter(*datum_plane);
+
+	return;
+};
 
 bool
 Visualization::sacSegment()
