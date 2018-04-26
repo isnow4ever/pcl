@@ -673,6 +673,7 @@ Visualization::registration()
 bool
 Visualization::initialAlignment()
 {
+	
 	const double FILTER_LIMIT = 1000.0;
 	const int MAX_SACIA_ITERATIONS = 2000;
 
@@ -692,9 +693,10 @@ Visualization::initialAlignment()
 	ia->voxelFilter(original_model, cloud1ds, VOXEL_GRID_SIZE);
 	ia->voxelFilter(original_data, cloud2ds, VOXEL_GRID_SIZE);
 
+	/*
 	record->progressBarUpdate(10);
 
-
+	
 	// compute normals
 	record->statusUpdate("compute normals...");
 	pcl::PointCloud<pcl::Normal>::Ptr normals1 = ia->getNormals(cloud1ds, NORMALS_RADIUS);
@@ -726,6 +728,15 @@ Visualization::initialAlignment()
 	Eigen::IOFormat OctaveFmt(Eigen::StreamPrecision, 0, ", ", ";\n", "", "", "[", "]");
 	trans << init_transform.format(OctaveFmt);
 	record->infoRec(QString::fromStdString(trans.str()));
+	*/
+	Eigen::Matrix4f init_transform;
+	init_transform << 
+		0.732703, 0.655999, -0.181143, 22.5263,
+		0.163284, 0.0889411, 0.982562, 7.71544,
+		0.66067, -0.749503, -0.0419469, 143.399,
+		0, 0, 0, 1;
+
+	pcl::transformPointCloud(*original_data, *original_data, init_transform);
 	//===========================================================//
 
 	pcl::ModelCoefficients::Ptr coeff_data(new pcl::ModelCoefficients);
@@ -779,32 +790,22 @@ Visualization::computeDatumCoefficients(PointCloudT::Ptr cloud, PointCloudT::Ptr
 	pass.setFilterLimits(-10, 10);
 	//pass.setFilterLimitsNegative (true);
 	pass.filter(*cloud);
-	//===========================================================//
-	PointCloudN::Ptr normals(new PointCloudN);
 
+	//===============computeNormals========================//
+	PointCloudN::Ptr normals(new PointCloudN);
 	pcl::NormalEstimation<pcl::PointXYZ, pcl::Normal> ne;
 	ne.setInputCloud(cloud);
-
-	// Create an empty kdtree representation, and pass it to the normal estimation object.
-	// Its content will be filled inside the object, based on the given input dataset (as no other search surface is given).
 	pcl::search::KdTree<pcl::PointXYZ>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZ>());
 	ne.setSearchMethod(tree);
-
-	// Output datasets
-	//PointCloudN::Ptr cloud_normals(new PointCloudN);
-
-	// Use all neighbors in a sphere of radius 3cm
 	ne.setRadiusSearch(1);
-	//ne.setViewPoint(0, 0, 0);
-	// Compute the features
 	ne.compute(*normals);
-
+	//================segmentation=========================//
 	// segmentation
 	//pcl::ModelCoefficients::Ptr coefficients(new pcl::ModelCoefficients);
 	pcl::PointIndices::Ptr inliers(new pcl::PointIndices);
 
 	pcl::SACSegmentationFromNormals<pcl::PointXYZ, pcl::Normal> sac;
-	sac.setInputCloud(cloud);    // cloud_source_filtered 为提取桌子表面 cloud_source 为提取地面
+	sac.setInputCloud(cloud);    
 	sac.setInputNormals(normals);
 	sac.setMethodType(pcl::SAC_RANSAC);
 	sac.setModelType(pcl::SACMODEL_PERPENDICULAR_PLANE);
@@ -820,7 +821,7 @@ Visualization::computeDatumCoefficients(PointCloudT::Ptr cloud, PointCloudT::Ptr
 	// extract the certain field
 	pcl::ExtractIndices<pcl::PointXYZ> ei;
 	ei.setIndices(inliers);
-	ei.setInputCloud(cloud);    // cloud_source_filtered 为提取桌子表面 cloud_source 为提取地面
+	ei.setInputCloud(cloud);    
 	ei.filter(*datum_plane);
 
 	return;
