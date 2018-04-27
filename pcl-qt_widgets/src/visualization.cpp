@@ -731,9 +731,9 @@ Visualization::initialAlignment()
 	*/
 	Eigen::Matrix4f init_transform;
 	init_transform << 
-		0.732703, 0.655999, -0.181143, 22.5263,
-		0.163284, 0.0889411, 0.982562, 7.71544,
-		0.66067, -0.749503, -0.0419469, 143.399,
+		-0.689044, -0.519147, -0.505673, 133.528,
+		-0.355739, -0.365619, 0.8601, 6.76199,
+		-0.631402, 0.772535, 0.0672473, 246.117,
 		0, 0, 0, 1;
 
 	pcl::transformPointCloud(*original_data, *original_data, init_transform);
@@ -766,6 +766,8 @@ Visualization::initialAlignment()
 	viewer->addText("After Alignment", 10, 10, "v2 text", v2);
 	PointCloudColorHandlerCustom<PointXYZ> green2(original_model, 0, 255, 0);
 	PointCloudColorHandlerCustom<PointXYZ> red2(original_data, 255, 0, 0);
+	//viewer->addPointCloud(original_model, green2, "v2_target", v2);
+	//viewer->addPointCloud(original_data, red2, "v2_sourse", v2);
 	viewer->addPointCloud(datum_model, green2, "v2_target", v2);
 	viewer->addPointCloud(datum_data, red2, "v2_sourse", v2);
 
