@@ -157,15 +157,15 @@ public:
 
 	bool initialAlignment();
 
-	void computeDatumCoefficients(PointCloudT::Ptr, PointCloudT::Ptr, PointCloudT::Ptr, pcl::ModelCoefficients::Ptr);
+	void computeDatumCoefficients(PointCloudT::Ptr, PointCloudN::Ptr, PointCloudT::Ptr, PointCloudT::Ptr, pcl::ModelCoefficients::Ptr);
 
-	double computeDatumError(PointCloudT::Ptr, PointCloudT::Ptr);
+	double computeDatumError(PointCloudT::Ptr, PointCloudN::Ptr, PointCloudT::Ptr);
 
 	double computeDatumAngle(pcl::ModelCoefficients::Ptr, pcl::ModelCoefficients::Ptr);
 
-	bool enveloped(PointCloudT::Ptr, PointCloudT::Ptr);
+	bool enveloped(PointCloudT::Ptr, PointCloudN::Ptr, PointCloudT::Ptr, std::vector<double>);
 
-	double computeSurfaceVariance(PointCloudT::Ptr, PointCloudT::Ptr);
+	double computeSurfaceVariance(std::vector<double>);
 
 	double computeFitness(Eigen::Matrix4d transformation);
 

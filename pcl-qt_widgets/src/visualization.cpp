@@ -789,7 +789,7 @@ Visualization::initialAlignment()
 }
 
 void
-Visualization::computeDatumCoefficients(PointCloudT::Ptr cloud, PointCloudT::Ptr surface, PointCloudT::Ptr datum_plane, pcl::ModelCoefficients::Ptr coefficients)
+Visualization::computeDatumCoefficients(PointCloudT::Ptr cloud, PointCloudN::Ptr normals, PointCloudT::Ptr surface, PointCloudT::Ptr datum_plane, pcl::ModelCoefficients::Ptr coefficients)
 {
 	// Create the filtering object
 	pcl::PassThrough<pcl::PointXYZ> pass;
@@ -799,14 +799,7 @@ Visualization::computeDatumCoefficients(PointCloudT::Ptr cloud, PointCloudT::Ptr
 	//pass.setFilterLimitsNegative (true);
 	pass.filter(*cloud);
 
-	//===============computeNormals========================//
-	PointCloudN::Ptr normals(new PointCloudN);
-	pcl::NormalEstimation<pcl::PointXYZ, pcl::Normal> ne;
-	ne.setInputCloud(cloud);
-	pcl::search::KdTree<pcl::PointXYZ>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZ>());
-	ne.setSearchMethod(tree);
-	ne.setRadiusSearch(1);
-	ne.compute(*normals);
+
 	//================segmentation=========================//
 	// segmentation
 	//pcl::ModelCoefficients::Ptr coefficients(new pcl::ModelCoefficients);
@@ -840,9 +833,28 @@ Visualization::computeDatumCoefficients(PointCloudT::Ptr cloud, PointCloudT::Ptr
 };
 
 double
-Visualization::computeDatumError(PointCloudT::Ptr datum_model, PointCloudT::Ptr datum_data)
+Visualization::computeDatumError(PointCloudT::Ptr datum_model, PointCloudN::Ptr normals, PointCloudT::Ptr datum_data)
 {
-	return 0.0;
+	double datum_error = 0.0;
+	float resolution = 128.0f;
+	pcl::octree::OctreePointCloudSearch<pcl::PointXYZ> octree(resolution);
+	octree.setInputCloud(datum_data);
+	octree.addPointsFromInputCloud();
+	int K = 1;
+	std::vector<int> pointIdxNKNSearch;
+	std::vector<float> pointNKNSquaredDistance;
+	int scale = datum_model->size();
+	for (int i = 0; i < scale; i++)
+	{
+		octree.nearestKSearch(datum_model->points[i], K, pointIdxNKNSearch, pointNKNSquaredDistance);
+		Eigen::Vector3d yi(datum_data->points[pointIdxNKNSearch[0]].x, datum_data->points[pointIdxNKNSearch[0]].y, datum_data->points[pointIdxNKNSearch[0]].z);
+		Eigen::Vector3d xi(datum_model ->points[i].x, datum_model->points[i].y, datum_model->points[i].z);
+		Eigen::Vector3d w(normals->points[i].normal_x, normals->points[i].normal_y, normals->points[i].normal_z);
+		Eigen::Vector3d v = yi - xi;
+
+		datum_error = datum_error + sqrt(v.dot(w));
+	}
+	return datum_error;
 };
 
 double
@@ -852,15 +864,50 @@ Visualization::computeDatumAngle(pcl::ModelCoefficients::Ptr coeff_model, pcl::M
 };
 
 bool 
-Visualization::enveloped(PointCloudT::Ptr surface_model, PointCloudT::Ptr surface_data)
+Visualization::enveloped(PointCloudT::Ptr surface_model, PointCloudN::Ptr normals, PointCloudT::Ptr surface_data, std::vector<double> dist)
 {
-	return true;
+	int enveloped_counts = 0;
+	float resolution = 128.0f;
+	pcl::octree::OctreePointCloudSearch<pcl::PointXYZ> octree(resolution);
+	octree.setInputCloud(surface_data);
+	octree.addPointsFromInputCloud();
+	int K = 1;
+	std::vector<int> pointIdxNKNSearch;
+	std::vector<float> pointNKNSquaredDistance;
+	int scale = surface_model->size();
+	for (int i = 0; i < scale; i++)
+	{
+		octree.nearestKSearch(surface_model->points[i], K, pointIdxNKNSearch, pointNKNSquaredDistance);
+		Eigen::Vector3d yi(surface_data->points[pointIdxNKNSearch[0]].x, surface_data->points[pointIdxNKNSearch[0]].y, surface_data->points[pointIdxNKNSearch[0]].z);
+		Eigen::Vector3d xi(surface_model->points[i].x, surface_model->points[i].y, surface_model->points[i].z);
+		Eigen::Vector3d w(normals->points[i].normal_x, normals->points[i].normal_y, normals->points[i].normal_z);
+		Eigen::Vector3d v = yi - xi;
+		dist.push_back(v.dot(w));
+		if (v.dot(w) > 0)
+			enveloped_counts++;		
+	}
+	if (enveloped_counts / scale > 0.95)
+		return true;
+	else
+		return false;
 };
 
 double
-Visualization::computeSurfaceVariance(PointCloudT::Ptr surface_model, PointCloudT::Ptr surface_data)
+Visualization::computeSurfaceVariance(std::vector<double> dist)
 {
-	return 0.0;
+	double var;
+	double sum = 0.0;
+	for (int i = 0; i < dist.size(); i++)
+	{
+		sum = sum + dist.at(i);
+	}
+
+	for (int i = 0; i < dist.size(); i++)
+	{
+		var = var + sqrt(dist.at(i) - sum / dist.size());
+	}
+	var = var / dist.size();
+	return var;
 };
 
 double
@@ -876,8 +923,25 @@ Visualization::computeFitness(Eigen::Matrix4d transformation)
 	PointCloudT::Ptr surface_data(new PointCloudT);
 	PointCloudT::Ptr surface_model(new PointCloudT);
 
-	computeDatumCoefficients(transformed_data, surface_data, datum_data, coeff_data);
-	computeDatumCoefficients(original_model, surface_model, datum_model, coeff_model);
+	//===============computeNormals========================//
+	PointCloudN::Ptr normals_datum_model(new PointCloudN);
+	PointCloudN::Ptr normals_datum_data(new PointCloudN);
+	PointCloudN::Ptr normals_surface(new PointCloudN);
+	pcl::NormalEstimation<pcl::PointXYZ, pcl::Normal> ne;
+	ne.setInputCloud(datum_model);
+	pcl::search::KdTree<pcl::PointXYZ>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZ>());
+	ne.setSearchMethod(tree);
+	ne.setRadiusSearch(1);
+	ne.compute(*normals_datum_model);
+
+	ne.setInputCloud(datum_data);
+	ne.compute(*normals_datum_data);
+
+	ne.setInputCloud(surface_model);
+	ne.compute(*normals_surface);
+
+	computeDatumCoefficients(transformed_data, normals_datum_data, surface_data, datum_data, coeff_data);
+	computeDatumCoefficients(original_model, normals_datum_model, surface_model, datum_model, coeff_model);
 
 	qDebug("datum plane of data: %f, %f, %f, %f\n", coeff_data->values[0], coeff_data->values[1], coeff_data->values[2], coeff_data->values[3]);
 	qDebug("datum plane of model: %f, %f, %f, %f\n", coeff_model->values[0], coeff_model->values[1], coeff_model->values[2], coeff_model->values[3]);
@@ -885,16 +949,17 @@ Visualization::computeFitness(Eigen::Matrix4d transformation)
 	double alpha, beta;
 	double datum_error, dist_variance;
 	double fitness;
+	std::vector<double> dist;
 
 	alpha = 0.2;
 	beta = 0.8;
 
-	bool _enveloped = enveloped(surface_model, surface_data);
+	bool _enveloped = enveloped(surface_model, normals_surface, surface_data, dist);
 
 	if (_enveloped)
 	{
-		datum_error = computeDatumError(datum_model, datum_data);
-		dist_variance = computeSurfaceVariance(surface_model, surface_data);
+		datum_error = computeDatumError(datum_model, normals_datum_model, datum_data);
+		dist_variance = computeSurfaceVariance(dist);
 
 		fitness = 1 / (1 + alpha * exp(datum_error) + beta * exp(dist_variance));
 		return fitness;
