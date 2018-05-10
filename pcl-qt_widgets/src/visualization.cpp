@@ -752,46 +752,30 @@ Visualization::initialAlignment()
 	viewer->addPointCloud(original_model, green, "v1_target", v1);
 	viewer->addPointCloud(original_data, red, "v1_sourse", v1);
 
-	//===========================================================//
+	//=================GA Implementation=========================//
+	int popsize = 5;
+	double mutationrate = 0.8;
+	double crossoverrate = 1;
+	int generationmax = 50;
+	double maxstep = 0.01;
+	double leftmax = -PI / 36;
+	double rightmax = PI / 36;
 
-	pcl::ModelCoefficients::Ptr coeff_data(new pcl::ModelCoefficients);
-	pcl::ModelCoefficients::Ptr coeff_model(new pcl::ModelCoefficients);
-	PointCloudT::Ptr datum_data(new PointCloudT);
-	PointCloudT::Ptr datum_model(new PointCloudT);
-	PointCloudT::Ptr surface_data(new PointCloudT);
-	PointCloudT::Ptr surface_model(new PointCloudT);
+	Init(popsize, mutationrate, crossoverrate, generationmax,
+		maxstep, leftmax, rightmax);
+	ImplementGa();
 
-	computeDatumCoefficients(original_data, datum_data, coeff_data);
-	computeDatumCoefficients(original_model, datum_model, coeff_model);
-
-	qDebug("datum plane of data: %f, %f, %f, %f\n", coeff_data->values[0], coeff_data->values[1], coeff_data->values[2], coeff_data->values[3]);
-	qDebug("datum plane of model: %f, %f, %f, %f\n", coeff_model->values[0], coeff_model->values[1], coeff_model->values[2], coeff_model->values[3]);
-
-	//===========================================================//
-	double alpha, beta;
-	double datum_error, dist_variance;
-	double fitness;
-	
-	alpha = 0.2;
-	beta = 0.8;
-
-	datum_error = computeDatumError(datum_model, datum_data);
-	dist_variance = computeSurfaceVariance(surface_model, surface_data);
-
-	fitness = computeFitness(alpha, beta, datum_error, dist_variance);
-
-
-	//===========================================================//
+	//===================Visualization==========================//
 
 	viewer->createViewPort(0.5, 0.0, 1.0, 1.0, v2);
 	viewer->setBackgroundColor(0, 0, 0, v2);
 	viewer->addText("After Alignment", 10, 10, "v2 text", v2);
 	PointCloudColorHandlerCustom<PointXYZ> green2(original_model, 0, 255, 0);
 	PointCloudColorHandlerCustom<PointXYZ> red2(original_data, 255, 0, 0);
-	//viewer->addPointCloud(original_model, green2, "v2_target", v2);
-	//viewer->addPointCloud(original_data, red2, "v2_sourse", v2);
-	viewer->addPointCloud(datum_model, green2, "v2_target", v2);
-	viewer->addPointCloud(datum_data, red2, "v2_sourse", v2);
+	viewer->addPointCloud(original_model, green2, "v2_target", v2);
+	viewer->addPointCloud(original_data, red2, "v2_sourse", v2);
+	//viewer->addPointCloud(datum_model, green2, "v2_target", v2);
+	//viewer->addPointCloud(datum_data, red2, "v2_sourse", v2);
 
 	//pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> tgt_h(datum_data, 255, 0, 255);
 	//viewer->addPointCloud(datum_data, tgt_h, "target", v2);
@@ -805,7 +789,7 @@ Visualization::initialAlignment()
 }
 
 void
-Visualization::computeDatumCoefficients(PointCloudT::Ptr cloud, PointCloudT::Ptr datum_plane, pcl::ModelCoefficients::Ptr coefficients)
+Visualization::computeDatumCoefficients(PointCloudT::Ptr cloud, PointCloudT::Ptr surface, PointCloudT::Ptr datum_plane, pcl::ModelCoefficients::Ptr coefficients)
 {
 	// Create the filtering object
 	pcl::PassThrough<pcl::PointXYZ> pass;
@@ -845,8 +829,12 @@ Visualization::computeDatumCoefficients(PointCloudT::Ptr cloud, PointCloudT::Ptr
 	// extract the certain field
 	pcl::ExtractIndices<pcl::PointXYZ> ei;
 	ei.setIndices(inliers);
-	ei.setInputCloud(cloud);    
+	ei.setInputCloud(cloud);
+	ei.setNegative(false);
 	ei.filter(*datum_plane);
+	ei.setNegative(true);
+	ei.filter(*surface);
+
 
 	return;
 };
@@ -854,34 +842,286 @@ Visualization::computeDatumCoefficients(PointCloudT::Ptr cloud, PointCloudT::Ptr
 double
 Visualization::computeDatumError(PointCloudT::Ptr datum_model, PointCloudT::Ptr datum_data)
 {
-
+	return 0.0;
 };
 
 double
 Visualization::computeDatumAngle(pcl::ModelCoefficients::Ptr coeff_model, pcl::ModelCoefficients::Ptr coeff_data)
 {
-
+	return 0.0;
 };
 
 bool 
 Visualization::enveloped(PointCloudT::Ptr surface_model, PointCloudT::Ptr surface_data)
 {
-
+	return true;
 };
 
 double
 Visualization::computeSurfaceVariance(PointCloudT::Ptr surface_model, PointCloudT::Ptr surface_data)
 {
-
+	return 0.0;
 };
 
 double
-Visualization::computeFitness(double alpha, double beta, double datum_error, double dist_variance)
+Visualization::computeFitness(Eigen::Matrix4d transformation)
 {
+	PointCloudT::Ptr transformed_data(new PointCloudT);
+	pcl::transformPointCloud(*original_data, *transformed_data, transformation);
+
+	pcl::ModelCoefficients::Ptr coeff_data(new pcl::ModelCoefficients);
+	pcl::ModelCoefficients::Ptr coeff_model(new pcl::ModelCoefficients);
+	PointCloudT::Ptr datum_data(new PointCloudT);
+	PointCloudT::Ptr datum_model(new PointCloudT);
+	PointCloudT::Ptr surface_data(new PointCloudT);
+	PointCloudT::Ptr surface_model(new PointCloudT);
+
+	computeDatumCoefficients(transformed_data, surface_data, datum_data, coeff_data);
+	computeDatumCoefficients(original_model, surface_model, datum_model, coeff_model);
+
+	qDebug("datum plane of data: %f, %f, %f, %f\n", coeff_data->values[0], coeff_data->values[1], coeff_data->values[2], coeff_data->values[3]);
+	qDebug("datum plane of model: %f, %f, %f, %f\n", coeff_model->values[0], coeff_model->values[1], coeff_model->values[2], coeff_model->values[3]);
+
+	double alpha, beta;
+	double datum_error, dist_variance;
 	double fitness;
-	fitness = alpha * exp(datum_error) + beta * exp(dist_variance);
-	return fitness;
+
+	alpha = 0.2;
+	beta = 0.8;
+
+	bool _enveloped = enveloped(surface_model, surface_data);
+
+	if (_enveloped)
+	{
+		datum_error = computeDatumError(datum_model, datum_data);
+		dist_variance = computeSurfaceVariance(surface_model, surface_data);
+
+		fitness = 1 / (1 + alpha * exp(datum_error) + beta * exp(dist_variance));
+		return fitness;
+	}
+	else
+	{
+		return 0.0;
+	}
+
+	
 };
+
+//GA part
+double
+Visualization::Curve(Chromo2 input)
+{
+	double omega, fai, kappa;
+	double a, b, c;
+	omega = input.vecGenome[0];
+	fai = input.vecGenome[1];
+	kappa = input.vecGenome[2];
+	a = input.vecGenome[3];
+	b = input.vecGenome[4];
+	c = input.vecGenome[5];
+
+	Eigen::AngleAxisd rollAngle(omega, Eigen::Vector3d::UnitZ());
+	Eigen::AngleAxisd yawAngle(fai, Eigen::Vector3d::UnitY());
+	Eigen::AngleAxisd pitchAngle(kappa, Eigen::Vector3d::UnitX());
+
+	Eigen::Quaternion<double> q = rollAngle * yawAngle * pitchAngle;
+
+	Eigen::Matrix3d rotationMatrix = q.matrix();
+
+	Eigen::Affine3d r(rotationMatrix);
+	Eigen::Affine3d t(Eigen::Translation3d(a * 100, b * 100, c * 100));
+	Eigen::Matrix4d transformation = (t * r).matrix();
+
+	double y = computeFitness(transformation);
+	return y;
+}
+
+double
+Visualization::Random()
+{
+	double random;
+	random = (1.0*rand()) / (RAND_MAX + 1);
+	return random;
+}
+
+void
+Visualization::Reset()
+{
+	generationCount = 0;
+	popOperation.vecPop.clear();
+}
+
+void
+Visualization::Init(int popsize, double mutationrate, double crossoverrate, int generationmax,
+	double maxstep, double leftmax, double rightmax)
+{
+	popOperation.popSize = popsize;
+	popOperation.mutationRate = mutationrate;
+	popOperation.crossoverRate = crossoverrate;
+	popOperation.generationMax = generationmax;
+	popOperation.maxStep = maxstep;
+	popOperation.leftMax = leftmax;
+	popOperation.rightMax = rightmax;
+	double k = 0.0;
+	//初始化种群中染色体的基因--随机方式
+	for (int i = 0; i < popOperation.popSize; i++)
+	{
+		k = Random();
+
+		for (unsigned int j = 0; j < popOperation.vecPop[i].chromoLength; j++)
+		{
+			popOperation.vecPop[i].vecGenome[j] = k*(rightmax - leftmax) + leftmax;
+		}
+	}
+}
+
+void
+Visualization::CalculateRate()
+{
+	double Ydata = 0.0, AllRate = 0.0, Yrate = 0.0;
+	double maxRate = 0.0, minRate = 0.0, maxData = 0.0;
+
+	Ydata = Curve(popOperation.vecPop[0]);
+	Yrate = Ydata;
+	popOperation.vecPop[0].fitness = Yrate;
+	maxRate = Yrate;
+	minRate = Yrate;
+	AllRate = Yrate;
+	maxData = Ydata;
+	for (int i = 1; i < popOperation.popSize; i++)
+	{
+		Ydata = Curve(popOperation.vecPop[i]);
+		Yrate = Ydata;
+		popOperation.vecPop[i].fitness = Yrate;
+		AllRate = AllRate + Yrate;
+		if (maxRate < Yrate)
+		{
+			maxRate = Yrate;
+			maxData = Ydata;
+			popOperation.fitnessChromo = popOperation.vecPop[i];
+		}
+		if (minRate > Yrate)
+			minRate = Yrate;
+	}
+#if false
+	double maxY = 0.0, absMax = 0.0, Max = 0.0, AllMax = 0.0, test = 0.0;
+	double maxRate = 0.0, minRate = 0.0;
+	for (int i = 0; i < popOperation.popSize; i++)//解码
+	{
+		test = Curve(popOperation.vecPop[i]);
+		Max = Max + test;
+		if (test < 0) test = -test;
+		absMax = absMax + test;
+	}
+	AllMax = Max + popOperation.popSize * absMax;
+	test = Curve(popOperation.vecPop[0]);
+	popOperation.vecPop[0].fitness = (absMax + test) / (AllMax);
+	maxRate = popOperation.vecPop[0].fitness;
+	minRate = popOperation.vecPop[0].fitness;
+	for (int i = 1; i < popOperation.popSize; i++)
+	{
+		test = Curve(popOperation.vecPop[i]);
+		popOperation.vecPop[i].fitness = (absMax + test) / (AllMax);
+		if (maxRate < popOperation.vecPop[i].fitness)
+		{
+			maxRate = popOperation.vecPop[i].fitness;
+			maxY = Curve(popOperation.vecPop[i]);
+		}
+		if (minRate > popOperation.vecPop[i].fitness)
+			minRate = popOperation.vecPop[i].fitness;
+	}
+#endif
+	popOperation.bestFitness = maxRate;
+	popOperation.worstFitness = minRate;
+	popOperation.MaxY = maxData;
+	popOperation.totalFitness = AllRate;
+	Report();
+}
+
+Chromo2
+Visualization::GenomeRoulette()
+{
+	double chooseRate = 0.0;
+	Chromo2 chooseChromo;
+	double randomLimit = 0.0;
+	randomLimit = Random()*popOperation.totalFitness;
+	for (int i = 0; i < popOperation.popSize; i++)
+	{
+		chooseRate = chooseRate + popOperation.vecPop[i].fitness;
+		if (chooseRate > randomLimit)
+		{
+			chooseChromo = popOperation.vecPop[i];
+			break;
+		}
+	}
+	return chooseChromo;
+}
+
+void
+Visualization::Mutate(Chromo2 genome)
+{
+	double mutateData = 0.0;
+	for (int i = 0; i < popOperation.popSize; i++)
+	{
+		for (unsigned int j = 0; j < popOperation.vecPop[i].chromoLength; j++)
+		{
+			mutateData = popOperation.vecPop[i].vecGenome[j];
+			if (Random() < popOperation.mutationRate)
+				popOperation.vecPop[i].vecGenome[j] = (Random() - 0.5)*popOperation.maxStep + mutateData;
+			if (popOperation.vecPop[i].vecGenome[j] > popOperation.rightMax)
+				popOperation.vecPop[i].vecGenome[j] = popOperation.rightMax;
+			if (popOperation.vecPop[i].vecGenome[j] < popOperation.leftMax)
+				popOperation.vecPop[i].vecGenome[j] = popOperation.leftMax;
+		}
+	}
+}
+
+void
+Visualization::Epoch(Population2& newgeneration)
+{
+	double x = 0, y = 0;
+	std::vector<Chromo2> tempGeneration;
+	CalculateRate();
+	tempGeneration = popOperation.vecPop;
+	Chromo2 MotherChromo, FatherChromo, GirlChromo, BoyChromo;
+	for (int i = 0; i < popOperation.popSize; i += 2)
+	{
+		MotherChromo = GenomeRoulette();
+		FatherChromo = GenomeRoulette();
+		//进行交叉变异
+		double crossover = MotherChromo.vecGenome[1];
+		MotherChromo.vecGenome[1] = FatherChromo.vecGenome[1];
+		FatherChromo.vecGenome[1] = crossover;
+		GirlChromo = MotherChromo;
+		BoyChromo = FatherChromo;
+		//进行基因突变了
+		Mutate(GirlChromo);
+		Mutate(BoyChromo);
+		popOperation.vecPop[i].vecGenome = GirlChromo.vecGenome;
+		popOperation.vecPop[i + 1].vecGenome = BoyChromo.vecGenome;
+	}
+	//newgeneration.vecPop = tempGeneration;
+}
+
+void
+Visualization::ImplementGa()
+{
+	for (int i = 0; i < popOperation.generationMax + 1; i++)
+	{
+
+		Epoch(popOperation);
+		generationCount++;
+	}
+}
+
+void
+Visualization::Report()
+{
+	qDebug("GenerationCount: %d.", generationCount);
+	//qDebug("bestFitness: %f.", popOperation.bestFitness);
+	//qDebug("worstFitness: %f.", popOperation.worstFitness);
+	qDebug("Max Correlation: %f.", popOperation.MaxY);
+}
 
 bool
 Visualization::sacSegment()
