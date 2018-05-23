@@ -57,10 +57,10 @@ MainWindow::MainWindow(QWidget *parent) :
 	statusLabel->setText("hello pcl!");
 
 	//Default filename
-	fileName_Model = "E:/Projects/pcl/pcl-qt_widgets/build/data/suixingdianban_model.ply";
-	fileName_Data = "E:/Projects/pcl/pcl-qt_widgets/build/data/suixingdianban_filtered.ply";
-	ui->textBrowser->setText("suixingdianban_model.ply");
-	ui->textBrowser_2->setText("suixingdianban_filtered.ply");
+	fileName_Model = "E:/Projects/pcl/pcl-qt_widgets/build/data/blade_model.ply";
+	fileName_Data = "E:/Projects/pcl/pcl-qt_widgets/build/data/blade_data.ply";
+	ui->textBrowser->setText("blade_model.ply");
+	ui->textBrowser_2->setText("blade_data.ply");
 }
 
 MainWindow::~MainWindow()

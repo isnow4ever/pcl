@@ -167,7 +167,7 @@ public:
 
 	double computeSurfaceVariance(std::vector<double>);
 
-	double computeFitness(Eigen::Matrix4d transformation);
+	double computeFitness(Eigen::Matrix4d &transformation);
 
 	void search(Eigen::Matrix4d &transformation);
 

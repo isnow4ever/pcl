@@ -668,6 +668,8 @@ Visualization::registration()
 	pcl::transformPointCloud(*nsReg->data_normal_sphere, *cloud_out, transformation_matrix, true);
 	*nsReg->data_normal_sphere = *cloud_out;
 	viewer->updatePointCloud(nsReg->data_normal_sphere, red, "data");
+
+	return true;
 }
 
 bool
@@ -736,11 +738,11 @@ Visualization::initialAlignment()
 		-0.631402, 0.772535, 0.0672473, 246.117,
 		0, 0, 0, 1;
 
-	pcl::transformPointCloud(*original_data, *original_data, init_transform);
+	pcl::transformPointCloud(*cloud2ds, *cloud2ds, init_transform);
 
 	int v1(0), v2(0);
 	viewer->createViewPort(0.0, 0.0, 0.5, 1.0, v1);
-	viewer->setBackgroundColor(0, 0, 0, v1);
+	viewer->setBackgroundColor(0.92, 0.999, 0.999, v1);
 	viewer->addText("Before Alignment", 10, 10, "v1 text", v1);
 	//PointCloudColorHandlerCustom<PointXYZ> green(cloud1ds, 0, 255, 0);
 	//PointCloudColorHandlerCustom<PointXYZ> red(cloud2ds, 255, 0, 0);
@@ -751,7 +753,7 @@ Visualization::initialAlignment()
 	PointCloudColorHandlerCustom<PointXYZ> red(original_data, 255, 0, 0);
 	viewer->addPointCloud(original_model, green, "v1_target", v1);
 	viewer->addPointCloud(original_data, red, "v1_sourse", v1);
-
+	/*
 	//=================GA Implementation=========================//
 	int popsize = 5;
 	double mutationrate = 0.8;
@@ -764,16 +766,16 @@ Visualization::initialAlignment()
 	Init(popsize, mutationrate, crossoverrate, generationmax,
 		maxstep, leftmax, rightmax);
 	ImplementGa();
-
+	*/
 	//===================Visualization==========================//
 
 	viewer->createViewPort(0.5, 0.0, 1.0, 1.0, v2);
-	viewer->setBackgroundColor(0, 0, 0, v2);
+	viewer->setBackgroundColor(0.92, 0.999, 0.999, v2);
 	viewer->addText("After Alignment", 10, 10, "v2 text", v2);
-	PointCloudColorHandlerCustom<PointXYZ> green2(original_model, 0, 255, 0);
-	PointCloudColorHandlerCustom<PointXYZ> red2(original_data, 255, 0, 0);
-	viewer->addPointCloud(original_model, green2, "v2_target", v2);
-	viewer->addPointCloud(original_data, red2, "v2_sourse", v2);
+	PointCloudColorHandlerCustom<PointXYZ> green2(cloud1ds, 0, 255, 0);
+	PointCloudColorHandlerCustom<PointXYZ> red2(cloud2ds, 255, 0, 0);
+	viewer->addPointCloud(cloud1ds, green2, "v2_target", v2);
+	viewer->addPointCloud(cloud2ds, red2, "v2_sourse", v2);
 	//viewer->addPointCloud(datum_model, green2, "v2_target", v2);
 	//viewer->addPointCloud(datum_data, red2, "v2_sourse", v2);
 
@@ -825,8 +827,11 @@ Visualization::computeDatumCoefficients(PointCloudT::Ptr cloud, PointCloudN::Ptr
 	ei.setInputCloud(cloud);
 	ei.setNegative(false);
 	ei.filter(*datum_plane);
-	ei.setNegative(true);
-	ei.filter(*surface);
+	pcl::ExtractIndices<pcl::PointXYZ> ei2;
+	ei2.setIndices(inliers);
+	ei2.setInputCloud(cloud);
+	ei2.setNegative(true);
+	ei2.filter(*surface);
 
 
 	return;
@@ -911,7 +916,7 @@ Visualization::computeSurfaceVariance(std::vector<double> dist)
 };
 
 double
-Visualization::computeFitness(Eigen::Matrix4d transformation)
+Visualization::computeFitness(Eigen::Matrix4d &transformation)
 {
 	PointCloudT::Ptr transformed_data(new PointCloudT);
 	pcl::transformPointCloud(*original_data, *transformed_data, transformation);
@@ -943,8 +948,8 @@ Visualization::computeFitness(Eigen::Matrix4d transformation)
 	computeDatumCoefficients(transformed_data, normals_datum_data, surface_data, datum_data, coeff_data);
 	computeDatumCoefficients(original_model, normals_datum_model, surface_model, datum_model, coeff_model);
 
-	qDebug("datum plane of data: %f, %f, %f, %f\n", coeff_data->values[0], coeff_data->values[1], coeff_data->values[2], coeff_data->values[3]);
-	qDebug("datum plane of model: %f, %f, %f, %f\n", coeff_model->values[0], coeff_model->values[1], coeff_model->values[2], coeff_model->values[3]);
+	//qDebug("datum plane of data: %f, %f, %f, %f\n", coeff_data->values[0], coeff_data->values[1], coeff_data->values[2], coeff_data->values[3]);
+	//qDebug("datum plane of model: %f, %f, %f, %f\n", coeff_model->values[0], coeff_model->values[1], coeff_model->values[2], coeff_model->values[3]);
 
 	double alpha, beta;
 	double datum_error, dist_variance;
