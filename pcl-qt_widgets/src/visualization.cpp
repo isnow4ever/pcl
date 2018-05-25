@@ -705,7 +705,7 @@ Visualization::initialAlignment()
 	ia->voxelFilter(original_model, cloud1ds, VOXEL_GRID_SIZE);
 	ia->voxelFilter(original_data, cloud2ds, VOXEL_GRID_SIZE);
 
-	/*
+	
 	record->progressBarUpdate(10);
 
 	
@@ -731,7 +731,7 @@ Visualization::initialAlignment()
 	record->progressBarUpdate(90);
 
 	Eigen::Matrix4f init_transform = sac_ia.getFinalTransformation();
-	pcl::transformPointCloud(*original_data, *original_data, init_transform);
+	pcl::transformPointCloud(*cloud2ds, *cloud2ds, init_transform);
 	//pcl::pointcloud<pcl::pointxyz> final = *cloud1;
 	//final += *cloud2;
 	record->progressBarUpdate(100);
@@ -740,7 +740,8 @@ Visualization::initialAlignment()
 	Eigen::IOFormat OctaveFmt(Eigen::StreamPrecision, 0, ", ", ";\n", "", "", "[", "]");
 	trans << init_transform.format(OctaveFmt);
 	record->infoRec(QString::fromStdString(trans.str()));
-	*/
+	
+	/*
 	Eigen::Matrix4f init_transform;
 	init_transform << 
 		-0.689044, -0.519147, -0.505673, 133.528,
@@ -749,10 +750,10 @@ Visualization::initialAlignment()
 		0, 0, 0, 1;
 
 	pcl::transformPointCloud(*cloud2ds, *cloud2ds, init_transform);
-
+	*/
 	int v1(0), v2(0);
 	viewer->createViewPort(0.0, 0.0, 0.5, 1.0, v1);
-	viewer->setBackgroundColor(0.92, 0.999, 0.999, v1);
+	viewer->setBackgroundColor(0.0, 0.0, 0.0, v1);
 	viewer->addText("Before Alignment", 10, 10, "v1 text", v1);
 	//PointCloudColorHandlerCustom<PointXYZ> green(cloud1ds, 0, 255, 0);
 	//PointCloudColorHandlerCustom<PointXYZ> red(cloud2ds, 255, 0, 0);
@@ -763,7 +764,7 @@ Visualization::initialAlignment()
 	PointCloudColorHandlerCustom<PointXYZ> red(original_data, 255, 0, 0);
 	viewer->addPointCloud(original_model, green, "v1_target", v1);
 	viewer->addPointCloud(original_data, red, "v1_sourse", v1);
-	
+	/*
 	//===============PassthroughFilter========================//
 	pcl::PassThrough<pcl::PointXYZ> pass;
 	pass.setInputCloud(original_model);
@@ -799,11 +800,11 @@ Visualization::initialAlignment()
 	Init(popsize, mutationrate, crossoverrate, generationmax,
 		maxstep, leftmax, rightmax);
 	ImplementGa();
-
+	*/
 	//===================Visualization==========================//
 
 	viewer->createViewPort(0.5, 0.0, 1.0, 1.0, v2);
-	viewer->setBackgroundColor(0.92, 0.999, 0.999, v2);
+	viewer->setBackgroundColor(0.0, 0.0, 0.0, v2);
 	viewer->addText("After Alignment", 10, 10, "v2 text", v2);
 	PointCloudColorHandlerCustom<PointXYZ> green2(cloud1ds, 0, 255, 0);
 	PointCloudColorHandlerCustom<PointXYZ> red2(cloud2ds, 255, 0, 0);
@@ -815,11 +816,24 @@ Visualization::initialAlignment()
 	//pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> tgt_h(datum_data, 255, 0, 255);
 	//viewer->addPointCloud(datum_data, tgt_h, "target", v2);
 
-	viewer->spin();
+	//viewer->spin();
 
 	//ia->viewPair(cloud1ds, cloud2ds, cloud1, cloud2);
 	//pcl::io::savePCDFile("result.pcd", final);
 	//view(final);
+
+	//======================ICP==========================//
+	qDebug("icp started...");
+	pcl::IterativeClosestPoint<PointT, PointT> icp;
+	icp.setMaximumIterations(50);
+	icp.setInputSource(cloud2ds);
+	icp.setInputTarget(cloud1ds);
+	icp.align(*cloud2ds);
+	Eigen::Matrix4d icp_transform = icp.getFinalTransformation().cast<double>();
+	//pcl::transformPointCloud(*cloud2ds, *cloud2ds, icp_transform);
+	qDebug("icp finished...");
+	viewer->spin();
+
 	return true;
 }
 
