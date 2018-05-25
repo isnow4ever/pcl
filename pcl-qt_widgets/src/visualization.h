@@ -79,33 +79,33 @@ private:
 	double MaxY;
 };
 
-class GA : public QObject
-{
-public:
-	//GA
-	void Reset();//重置参数
-				 //外界输入初始化参数、染色体初始化
-	void Init(int popsize, double mutationrate, double crossoverrate, int generationmax,
-		double maxstep, double leftmax, double rightmax);
-	void ImplementGa();//执行遗传算法
-
-
-	Eigen::Vector3d translation;
-	Eigen::Matrix3d rotation;
-	Eigen::Matrix4d transformation;
-
-private:
-	//GA
-	double Curve(Chromo2 input);//解码---x->F(x)
-	double Random();//制造随机0-1的输
-	Population2 popOperation;//定义一个可操作的种群-populationOperation	
-	int generationCount;//记录杂交的代数
-	void CalculateRate();//初始化软件计算的参数
-	Chromo2 GenomeRoulette();//轮盘赌选择函数
-	void Mutate(Chromo2 genome);//基因突变函数
-	void Epoch(Population2& newgeneration);//产生新的一代
-	void Report();//输出到终端的信息
-};
+//class GA : public QObject
+//{
+//public:
+//	//GA
+//	void Reset();//重置参数
+//				 //外界输入初始化参数、染色体初始化
+//	void Init(int popsize, double mutationrate, double crossoverrate, int generationmax,
+//		double maxstep, double leftmax, double rightmax);
+//	void ImplementGa();//执行遗传算法
+//
+//
+//	Eigen::Vector3d translation;
+//	Eigen::Matrix3d rotation;
+//	Eigen::Matrix4d transformation;
+//
+//private:
+//	//GA
+//	double Curve(Chromo2 input);//解码---x->F(x)
+//	double Random();//制造随机0-1的输
+//	Population2 popOperation;//定义一个可操作的种群-populationOperation	
+//	int generationCount;//记录杂交的代数
+//	void CalculateRate();//初始化软件计算的参数
+//	Chromo2 GenomeRoulette();//轮盘赌选择函数
+//	void Mutate(Chromo2 genome);//基因突变函数
+//	void Epoch(Population2& newgeneration);//产生新的一代
+//	void Report();//输出到终端的信息
+//};
 
 
 class Visualization : public QObject
@@ -157,13 +157,13 @@ public:
 
 	bool initialAlignment();
 
-	void computeDatumCoefficients(PointCloudT::Ptr, PointCloudN::Ptr, PointCloudT::Ptr, PointCloudT::Ptr, pcl::ModelCoefficients::Ptr);
+	void computeDatumCoefficients(PointCloudT::Ptr, PointCloudN::Ptr, PointCloudT::Ptr, pcl::ModelCoefficients::Ptr);
 
 	double computeDatumError(PointCloudT::Ptr, PointCloudN::Ptr, PointCloudT::Ptr);
 
 	double computeDatumAngle(pcl::ModelCoefficients::Ptr, pcl::ModelCoefficients::Ptr);
 
-	bool enveloped(PointCloudT::Ptr, PointCloudN::Ptr, PointCloudT::Ptr, std::vector<double>);
+	double enveloped(PointCloudT::Ptr, PointCloudN::Ptr, PointCloudT::Ptr, std::vector<double>);
 
 	double computeSurfaceVariance(std::vector<double>);
 
@@ -213,4 +213,15 @@ private:
 	void Mutate(Chromo2 genome);//基因突变函数
 	void Epoch(Population2& newgeneration);//产生新的一代
 	void Report();//输出到终端的信息
+
+	PointCloudT::Ptr datum_data;
+	PointCloudT::Ptr datum_model;
+	PointCloudT::Ptr surface_data;
+	PointCloudT::Ptr surface_model;
+
+	PointCloudN::Ptr normals_model;
+	PointCloudN::Ptr normals_data;
+	PointCloudN::Ptr normals_datum_model;
+	PointCloudN::Ptr normals_datum_data;
+	PointCloudN::Ptr normals_surface;
 };

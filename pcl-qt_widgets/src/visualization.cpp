@@ -37,6 +37,16 @@ Visualization::Visualization(QString filename, QString filename_data)
 	normal_level = 100;
 	normal_scale = 0.0;
 	rotation = { 0.0, 0.0, 0.0 };
+
+	datum_data.reset(new PointCloudT);
+	datum_model.reset(new PointCloudT);
+	surface_data.reset(new PointCloudT);
+	surface_model.reset(new PointCloudT);
+	normals_model.reset(new PointCloudN);
+	normals_data.reset(new PointCloudN);
+	normals_datum_model.reset(new PointCloudN);
+	normals_datum_data.reset(new PointCloudN);
+	normals_surface.reset(new PointCloudN);
 }
 
 
@@ -753,20 +763,43 @@ Visualization::initialAlignment()
 	PointCloudColorHandlerCustom<PointXYZ> red(original_data, 255, 0, 0);
 	viewer->addPointCloud(original_model, green, "v1_target", v1);
 	viewer->addPointCloud(original_data, red, "v1_sourse", v1);
-	/*
+	
+	//===============PassthroughFilter========================//
+	pcl::PassThrough<pcl::PointXYZ> pass;
+	pass.setInputCloud(original_model);
+	pass.setFilterFieldName("z");
+	pass.setFilterLimits(-10, 10);
+	pass.setFilterLimitsNegative(true);
+	pass.filter(*surface_model);
+	pass.setInputCloud(original_data);
+	pass.filter(*surface_data);
+
+	//===============NormalEstimation========================//
+	pcl::NormalEstimationOMP<pcl::PointXYZ, pcl::Normal> ne;
+	pcl::search::KdTree<pcl::PointXYZ>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZ>());
+	ne.setSearchMethod(tree);
+	ne.setRadiusSearch(30);
+
+	ne.setInputCloud(original_model);
+	ne.compute(*normals_model);
+
+	ne.setInputCloud(surface_model);
+	ne.compute(*normals_surface);
+	
 	//=================GA Implementation=========================//
+	qDebug("Start GA!");
 	int popsize = 5;
 	double mutationrate = 0.8;
 	double crossoverrate = 1;
 	int generationmax = 50;
-	double maxstep = 0.01;
-	double leftmax = -PI / 36;
-	double rightmax = PI / 36;
+	double maxstep = 0.001;
+	double leftmax = -PI / 18;
+	double rightmax = PI / 18;
 
 	Init(popsize, mutationrate, crossoverrate, generationmax,
 		maxstep, leftmax, rightmax);
 	ImplementGa();
-	*/
+
 	//===================Visualization==========================//
 
 	viewer->createViewPort(0.5, 0.0, 1.0, 1.0, v2);
@@ -791,15 +824,17 @@ Visualization::initialAlignment()
 }
 
 void
-Visualization::computeDatumCoefficients(PointCloudT::Ptr cloud, PointCloudN::Ptr normals, PointCloudT::Ptr surface, PointCloudT::Ptr datum_plane, pcl::ModelCoefficients::Ptr coefficients)
+Visualization::computeDatumCoefficients(PointCloudT::Ptr cloud, PointCloudN::Ptr normals, PointCloudT::Ptr datum_plane, pcl::ModelCoefficients::Ptr coefficients)
 {
+	PointCloudT::Ptr filtered_cloud(new PointCloudT);
 	// Create the filtering object
 	pcl::PassThrough<pcl::PointXYZ> pass;
 	pass.setInputCloud(cloud);
 	pass.setFilterFieldName("z");
 	pass.setFilterLimits(-10, 10);
+	
+	pass.filter(*filtered_cloud);
 	//pass.setFilterLimitsNegative (true);
-	pass.filter(*cloud);
 
 
 	//================segmentation=========================//
@@ -808,7 +843,7 @@ Visualization::computeDatumCoefficients(PointCloudT::Ptr cloud, PointCloudN::Ptr
 	pcl::PointIndices::Ptr inliers(new pcl::PointIndices);
 
 	pcl::SACSegmentationFromNormals<pcl::PointXYZ, pcl::Normal> sac;
-	sac.setInputCloud(cloud);    
+	sac.setInputCloud(filtered_cloud);
 	sac.setInputNormals(normals);
 	sac.setMethodType(pcl::SAC_RANSAC);
 	sac.setModelType(pcl::SACMODEL_PERPENDICULAR_PLANE);
@@ -824,14 +859,14 @@ Visualization::computeDatumCoefficients(PointCloudT::Ptr cloud, PointCloudN::Ptr
 	// extract the certain field
 	pcl::ExtractIndices<pcl::PointXYZ> ei;
 	ei.setIndices(inliers);
-	ei.setInputCloud(cloud);
-	ei.setNegative(false);
+	ei.setInputCloud(filtered_cloud);
+	ei.setNegative(true);
 	ei.filter(*datum_plane);
-	pcl::ExtractIndices<pcl::PointXYZ> ei2;
-	ei2.setIndices(inliers);
-	ei2.setInputCloud(cloud);
-	ei2.setNegative(true);
-	ei2.filter(*surface);
+	//pcl::ExtractIndices<pcl::PointXYZ> ei2;
+	//ei2.setIndices(inliers);
+	//ei2.setInputCloud(cloud);
+	//ei2.setNegative(false);
+	//ei2.filter(*surface);
 
 
 	return;
@@ -845,7 +880,7 @@ Visualization::computeDatumError(PointCloudT::Ptr datum_model, PointCloudN::Ptr 
 	pcl::octree::OctreePointCloudSearch<pcl::PointXYZ> octree(resolution);
 	octree.setInputCloud(datum_data);
 	octree.addPointsFromInputCloud();
-	int K = 1;
+	int K = 2;
 	std::vector<int> pointIdxNKNSearch;
 	std::vector<float> pointNKNSquaredDistance;
 	int scale = datum_model->size();
@@ -868,10 +903,11 @@ Visualization::computeDatumAngle(pcl::ModelCoefficients::Ptr coeff_model, pcl::M
 	return 0.0;
 };
 
-bool 
+double 
 Visualization::enveloped(PointCloudT::Ptr surface_model, PointCloudN::Ptr normals, PointCloudT::Ptr surface_data, std::vector<double> dist)
 {
 	int enveloped_counts = 0;
+
 	float resolution = 128.0f;
 	pcl::octree::OctreePointCloudSearch<pcl::PointXYZ> octree(resolution);
 	octree.setInputCloud(surface_data);
@@ -887,14 +923,18 @@ Visualization::enveloped(PointCloudT::Ptr surface_model, PointCloudN::Ptr normal
 		Eigen::Vector3d xi(surface_model->points[i].x, surface_model->points[i].y, surface_model->points[i].z);
 		Eigen::Vector3d w(normals->points[i].normal_x, normals->points[i].normal_y, normals->points[i].normal_z);
 		Eigen::Vector3d v = yi - xi;
+		//qDebug("v & w: %f, %f, %f, %f, %f, %f, %f;", v[0], v[1], v[2], w[0], w[1], w[2], v.dot(w));
 		dist.push_back(v.dot(w));
 		if (v.dot(w) > 0)
 			enveloped_counts++;		
 	}
-	if (enveloped_counts / scale > 0.95)
-		return true;
-	else
-		return false;
+	double enveloped_rate = (double)enveloped_counts / (double)scale;
+	qDebug("enveloped rate: %f", enveloped_rate);
+	return enveloped_rate;
+	//if (enveloped_rate > 0.75)
+	//	return true;
+	//else
+	//	return false;
 };
 
 double
@@ -919,60 +959,54 @@ double
 Visualization::computeFitness(Eigen::Matrix4d &transformation)
 {
 	PointCloudT::Ptr transformed_data(new PointCloudT);
+	PointCloudT::Ptr transformed_surface(new PointCloudT);
 	pcl::transformPointCloud(*original_data, *transformed_data, transformation);
+	pcl::transformPointCloud(*surface_data, *transformed_surface, transformation);
 
 	pcl::ModelCoefficients::Ptr coeff_data(new pcl::ModelCoefficients);
 	pcl::ModelCoefficients::Ptr coeff_model(new pcl::ModelCoefficients);
-	PointCloudT::Ptr datum_data(new PointCloudT);
-	PointCloudT::Ptr datum_model(new PointCloudT);
-	PointCloudT::Ptr surface_data(new PointCloudT);
-	PointCloudT::Ptr surface_model(new PointCloudT);
-
-	//===============computeNormals========================//
-	PointCloudN::Ptr normals_datum_model(new PointCloudN);
-	PointCloudN::Ptr normals_datum_data(new PointCloudN);
-	PointCloudN::Ptr normals_surface(new PointCloudN);
-	pcl::NormalEstimation<pcl::PointXYZ, pcl::Normal> ne;
-	ne.setInputCloud(datum_model);
-	pcl::search::KdTree<pcl::PointXYZ>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZ>());
-	ne.setSearchMethod(tree);
-	ne.setRadiusSearch(1);
-	ne.compute(*normals_datum_model);
-
-	ne.setInputCloud(datum_data);
-	ne.compute(*normals_datum_data);
-
-	ne.setInputCloud(surface_model);
-	ne.compute(*normals_surface);
-
-	computeDatumCoefficients(transformed_data, normals_datum_data, surface_data, datum_data, coeff_data);
-	computeDatumCoefficients(original_model, normals_datum_model, surface_model, datum_model, coeff_model);
-
+		
 	//qDebug("datum plane of data: %f, %f, %f, %f\n", coeff_data->values[0], coeff_data->values[1], coeff_data->values[2], coeff_data->values[3]);
 	//qDebug("datum plane of model: %f, %f, %f, %f\n", coeff_model->values[0], coeff_model->values[1], coeff_model->values[2], coeff_model->values[3]);
 
 	double alpha, beta;
-	double datum_error, dist_variance;
+	double datum_error, dist_variance, enveloped_rate;
 	double fitness;
 	std::vector<double> dist;
 
 	alpha = 0.2;
 	beta = 0.8;
 
-	bool _enveloped = enveloped(surface_model, normals_surface, surface_data, dist);
+	enveloped_rate = enveloped(surface_model, normals_surface, transformed_surface, dist);
+	
+	return enveloped_rate;
+	
+	//if (_enveloped)
+	//{
+	//	//===============NormalEstimation========================//
+	//	pcl::NormalEstimationOMP<pcl::PointXYZ, pcl::Normal> ne;
+	//	pcl::search::KdTree<pcl::PointXYZ>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZ>());
+	//	ne.setSearchMethod(tree);
+	//	ne.setRadiusSearch(30);
+	//	ne.setInputCloud(transformed_data);
+	//	ne.compute(*normals_data);
 
-	if (_enveloped)
-	{
-		datum_error = computeDatumError(datum_model, normals_datum_model, datum_data);
-		dist_variance = computeSurfaceVariance(dist);
+	//	//===============DatumEstimation========================//
+	//	computeDatumCoefficients(original_model, normals_model, datum_model, coeff_model);
+	//	computeDatumCoefficients(transformed_data, normals_data, datum_data, coeff_data);
 
-		fitness = 1 / (1 + alpha * exp(datum_error) + beta * exp(dist_variance));
-		return fitness;
-	}
-	else
-	{
-		return 0.0;
-	}
+	//	//===============ComputefFitness========================//
+	//	datum_error = computeDatumError(datum_model, normals_datum_model, datum_data);
+	//	dist_variance = computeSurfaceVariance(dist);
+
+	//	fitness = 1 / (1 + alpha * exp(datum_error) + beta * exp(dist_variance));
+	//	qDebug("Daturm Error: %f. Distance Var: %f. Fitness: %f.", datum_error, dist_variance, fitness);
+	//	return fitness;
+	//}
+	//else
+	//{
+	//	return 0.0;
+	//}
 
 	
 };
@@ -999,10 +1033,11 @@ Visualization::Curve(Chromo2 input)
 	Eigen::Matrix3d rotationMatrix = q.matrix();
 
 	Eigen::Affine3d r(rotationMatrix);
-	Eigen::Affine3d t(Eigen::Translation3d(a * 100, b * 100, c * 100));
+	Eigen::Affine3d t(Eigen::Translation3d(a , b , c ));
 	Eigen::Matrix4d transformation = (t * r).matrix();
 
 	double y = computeFitness(transformation);
+	qDebug("fitness: %f", y);
 	return y;
 }
 
@@ -1036,10 +1071,9 @@ Visualization::Init(int popsize, double mutationrate, double crossoverrate, int 
 	//初始化种群中染色体的基因--随机方式
 	for (int i = 0; i < popOperation.popSize; i++)
 	{
-		k = Random();
-
 		for (unsigned int j = 0; j < popOperation.vecPop[i].chromoLength; j++)
 		{
+			k = Random();
 			popOperation.vecPop[i].vecGenome[j] = k*(rightmax - leftmax) + leftmax;
 		}
 	}
