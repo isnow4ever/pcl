@@ -704,7 +704,7 @@ Visualization::initialAlignment()
 
 	ia->voxelFilter(original_model, cloud1ds, VOXEL_GRID_SIZE);
 	ia->voxelFilter(original_data, cloud2ds, VOXEL_GRID_SIZE);
-
+	/*
 	
 	record->progressBarUpdate(10);
 
@@ -722,7 +722,7 @@ Visualization::initialAlignment()
 	pcl::PointCloud<pcl::FPFHSignature33>::Ptr features2 = ia->getFeatures(cloud2ds, normals2, FEATURES_RADIUS);
 
 	record->progressBarUpdate(50);
-
+	
 	// initial alignment
 	record->statusUpdate("alignment...");
 	auto sac_ia = ia->align(cloud1ds, cloud2ds, features1, features2,
@@ -740,17 +740,22 @@ Visualization::initialAlignment()
 	Eigen::IOFormat OctaveFmt(Eigen::StreamPrecision, 0, ", ", ";\n", "", "", "[", "]");
 	trans << init_transform.format(OctaveFmt);
 	record->infoRec(QString::fromStdString(trans.str()));
+	*/
 	
-	/*
 	Eigen::Matrix4f init_transform;
-	init_transform << 
+	/*init_transform <<
 		-0.689044, -0.519147, -0.505673, 133.528,
 		-0.355739, -0.365619, 0.8601, 6.76199,
 		-0.631402, 0.772535, 0.0672473, 246.117,
+		0, 0, 0, 1;*/
+	init_transform <<
+		0.91302,  0.081678,  0.399655,  -77.4954,
+		0.387609,  0.131557, -0.912388,   193.777,
+		-0.127099,  0.987938, 0.0884551,   79.7795,
 		0, 0, 0, 1;
 
 	pcl::transformPointCloud(*cloud2ds, *cloud2ds, init_transform);
-	*/
+	
 	int v1(0), v2(0);
 	viewer->createViewPort(0.0, 0.0, 0.5, 1.0, v1);
 	viewer->setBackgroundColor(0.0, 0.0, 0.0, v1);
@@ -825,13 +830,27 @@ Visualization::initialAlignment()
 	//======================ICP==========================//
 	qDebug("icp started...");
 	pcl::IterativeClosestPoint<PointT, PointT> icp;
-	icp.setMaximumIterations(50);
+	icp.setMaxCorrespondenceDistance(0.1);
+	icp.setTransformationEpsilon(1e-10);
+	icp.setEuclideanFitnessEpsilon(0.01);
+	icp.setMaximumIterations(100);
 	icp.setInputSource(cloud2ds);
 	icp.setInputTarget(cloud1ds);
-	icp.align(*cloud2ds);
+	pcl::PointCloud<pcl::PointXYZ>::Ptr output(new pcl::PointCloud<pcl::PointXYZ>);
+	icp.align(*output);
+	double fitness;
+	fitness = icp.getFitnessScore();
+	PointCloudColorHandlerCustom<PointXYZ> blue(output, 0, 0, 255);
 	Eigen::Matrix4d icp_transform = icp.getFinalTransformation().cast<double>();
+	viewer->addPointCloud(output, blue, "v2_output", v2);
 	//pcl::transformPointCloud(*cloud2ds, *cloud2ds, icp_transform);
-	qDebug("icp finished...");
+	qDebug("icp finished...fitness score:%f",fitness);
+	qDebug("Rotation matrix :\n");
+	qDebug("    | %6.3f %6.3f %6.3f | \n", icp_transform(0, 0), icp_transform(0, 1), icp_transform(0, 2));
+	qDebug("R = | %6.3f %6.3f %6.3f | \n", icp_transform(1, 0), icp_transform(1, 1), icp_transform(1, 2));
+	qDebug("    | %6.3f %6.3f %6.3f | \n", icp_transform(2, 0), icp_transform(2, 1), icp_transform(2, 2));
+	qDebug("Translation vector :\n");
+	qDebug("t = < %6.3f, %6.3f, %6.3f >\n\n", icp_transform(0, 3), icp_transform(1, 3), icp_transform(2, 3));
 	viewer->spin();
 
 	return true;
