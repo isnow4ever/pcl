@@ -10,6 +10,7 @@
 #include <pcl/filters/extract_indices.h>
 #include <pcl/segmentation/organized_multi_plane_segmentation.h>
 #include <pcl/segmentation/region_growing.h>
+#include <pcl/registration/ndt.h>
 
 #define ICO_X .525731112119133606
 #define ICO_Z .850650808352039932
