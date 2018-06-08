@@ -123,6 +123,7 @@ public:
 
 	PointCloudT::Ptr original_model;
 	PointCloudT::Ptr original_data;
+	PointCloudT::Ptr final_data;
 	PointCloudT::Ptr cloud;
 	PointCloudT::Ptr cloud_out;
 	PointCloudN::Ptr cloud_normals;
@@ -173,6 +174,7 @@ public:
 
 	bool sacSegment();
 
+	bool optimalReg();
 signals:
 	void finished();
 
@@ -198,9 +200,9 @@ public:
 	void ImplementGa();//Ö´ÐÐÒÅ´«Ëã·¨
 
 
-	//Eigen::Vector3d translation;
-	//Eigen::Matrix3d rotation;
-	//Eigen::Matrix4d transformation;
+	//Eigen::Vector3f translation;
+	//Eigen::Matrix3f rotation;
+	Eigen::Matrix4f init_transform;
 
 private:
 	//GA

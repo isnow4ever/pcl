@@ -8,6 +8,7 @@
 #include <pcl/registration/ia_ransac.h>
 #include <pcl/point_types.h>
 #include <pcl/features/normal_3d.h>
+#include <pcl/features/normal_3d_omp.h>
 #include <pcl/point_types.h>
 #include <pcl/features/pfh.h>
 #include <pcl/filters/passthrough.h>
@@ -21,6 +22,7 @@
 #include "pcl/filters/passthrough.h" 
 #include "pcl/filters/voxel_grid.h" 
 #include "pcl/features/fpfh.h" 
+#include "pcl/features/fpfh_omp.h" 
 
 class Sac_IA
 {

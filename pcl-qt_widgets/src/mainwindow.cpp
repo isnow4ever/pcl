@@ -30,6 +30,7 @@ MainWindow::MainWindow(QWidget *parent) :
 	connect(ui->pushButton_11, SIGNAL(clicked()), this, SLOT(onRegistration()));
 	connect(ui->pushButton_12, SIGNAL(clicked()), this, SLOT(onInitialAlignment()));
 	connect(ui->pushButton_13, SIGNAL(clicked()), this, SLOT(onSACSegment()));
+	connect(ui->pushButton_14, SIGNAL(clicked()), this, SLOT(onOptimalReg()));
 
 	ui->progressBar->setRange(0, 100);
 	ui->progressBar->setValue(0);
@@ -43,6 +44,7 @@ MainWindow::MainWindow(QWidget *parent) :
 	ui->pushButton_11->setEnabled(false);
 	ui->pushButton_12->setEnabled(false);
 	ui->pushButton_13->setEnabled(false);
+	ui->pushButton_14->setEnabled(false);
 
 	ui->spinBox_2->setValue(100);
 	ui->doubleSpinBox->setValue(20.0);
@@ -59,8 +61,8 @@ MainWindow::MainWindow(QWidget *parent) :
 	//Default filename
 	fileName_Model = "E:/Projects/pcl/pcl-qt_widgets/build/data/blade_surface_model.ply";
 	fileName_Data = "E:/Projects/pcl/pcl-qt_widgets/build/data/blade_surface_data.ply";
-	ui->textBrowser->setText("blade_model.ply");
-	ui->textBrowser_2->setText("blade_data.ply");
+	ui->textBrowser->setText("blade_surface_model.ply");
+	ui->textBrowser_2->setText("blade_surface_data.ply");
 }
 
 MainWindow::~MainWindow()
@@ -171,6 +173,8 @@ MainWindow::onViewerOff()
 
 	ui->pushButton_13->setEnabled(false);
 
+	ui->pushButton_14->setEnabled(false);
+
 }
 
 void
@@ -188,6 +192,7 @@ MainWindow::onPreviewOpenSlot()
 		ui->pushButton_11->setEnabled(true);
 		ui->pushButton_12->setEnabled(true);
 		ui->pushButton_13->setEnabled(true);
+		ui->pushButton_14->setEnabled(true);
 	}
 		
 	visualization = new Visualization(fileName_Model, fileName_Data);
@@ -263,4 +268,10 @@ void
 MainWindow::onSACSegment()
 {
 	visualization->feature_id = 9;
+}
+
+void
+MainWindow::onOptimalReg()
+{
+	visualization->feature_id = 10;
 }

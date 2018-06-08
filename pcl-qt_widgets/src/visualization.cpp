@@ -1,6 +1,7 @@
 #include "visualization.h"
 #include "EGIReg.h"
 #include "Sac_IA.h"
+#include "optimalReg.h"
 #include <Eigen/Geometry> 
 #include <Eigen/src/Core/IO.h>
 
@@ -11,6 +12,8 @@
 #include <pcl/segmentation/organized_multi_plane_segmentation.h>
 #include <pcl/segmentation/region_growing.h>
 #include <pcl/registration/ndt.h>
+#include <pcl/surface/concave_hull.h>
+#include <pcl/surface/convex_hull.h>
 
 #define ICO_X .525731112119133606
 #define ICO_Z .850650808352039932
@@ -23,6 +26,7 @@ Visualization::Visualization(QString filename, QString filename_data)
 	record = new Record();
 	original_model.reset(new PointCloudT);
 	original_data.reset(new PointCloudT);
+	final_data.reset(new PointCloudT);
 	cloud.reset(new PointCloudT);
 	cloud_out.reset(new PointCloudT);
 	cloud_normals.reset(new PointCloudN);
@@ -103,6 +107,17 @@ Visualization::preview(QString filename, QString filename_data)
 	grid.filter(*original_data);
 	//*original_data = *cloud_data;
 
+	//pcl::PointCloud<pcl::PointXYZ>::Ptr cloud1ds(new pcl::PointCloud<pcl::PointXYZ>);
+	//pcl::PointCloud<pcl::PointXYZ>::Ptr cloud2ds(new pcl::PointCloud<pcl::PointXYZ>);
+
+	//pcl::ConvexHull<pcl::PointXYZ> chull;
+	//chull.setInputCloud(original_model);
+	//chull.reconstruct(*cloud1ds);
+	//chull.setInputCloud(original_data);
+	//chull.reconstruct(*cloud2ds);
+	//original_model = cloud1ds;
+	//original_data = cloud2ds;
+
 	//display number of points
 	record->info = QString("model size: "
 		+ QString::number(cloud->points.size())
@@ -123,11 +138,11 @@ Visualization::preview(QString filename, QString filename_data)
 
 	viewer->setBackgroundColor(0, 0, 0, v1);
 	viewer->setBackgroundColor(0.1, 0.1, 0.1, v2);
-	pcl::visualization::PointCloudColorHandlerCustom<PointT> green(cloud, 20, 180, 20);
-	viewer->addPointCloud(cloud, green, "model cloud", v1);
+	pcl::visualization::PointCloudColorHandlerCustom<PointT> green(original_model, 20, 180, 20);
+	viewer->addPointCloud(original_model, green, "model cloud", v1);
 
-	pcl::visualization::PointCloudColorHandlerCustom<PointT> red(cloud_data, 180, 20, 20);
-	viewer->addPointCloud(cloud_data, red, "data cloud", v2);
+	pcl::visualization::PointCloudColorHandlerCustom<PointT> red(original_data, 180, 20, 20);
+	viewer->addPointCloud(original_data, red, "data cloud", v2);
 
 	viewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, "model cloud");
 	viewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, "data cloud");
@@ -165,6 +180,8 @@ Visualization::preview(QString filename, QString filename_data)
 			break;
 		case 9:
 			sacSegment();
+		case 10:
+			optimalReg();
 		default:
 			break;
 		}
@@ -686,7 +703,8 @@ Visualization::registration()
 bool
 Visualization::initialAlignment()
 {
-	
+	//===================Sac-IA==========================//
+	/*
 	const double FILTER_LIMIT = 1000.0;
 	const int MAX_SACIA_ITERATIONS = 2000;
 
@@ -702,14 +720,12 @@ Visualization::initialAlignment()
 	record->statusUpdate("downsample the clouds...");
 	pcl::PointCloud<pcl::PointXYZ>::Ptr cloud1ds(new pcl::PointCloud<pcl::PointXYZ>);
 	pcl::PointCloud<pcl::PointXYZ>::Ptr cloud2ds(new pcl::PointCloud<pcl::PointXYZ>);
-
+	
 	ia->voxelFilter(original_model, cloud1ds, VOXEL_GRID_SIZE);
 	ia->voxelFilter(original_data, cloud2ds, VOXEL_GRID_SIZE);
-	/*
-	
+		
 	record->progressBarUpdate(10);
-
-	
+		
 	// compute normals
 	record->statusUpdate("compute normals...");
 	pcl::PointCloud<pcl::Normal>::Ptr normals1 = ia->getNormals(cloud1ds, NORMALS_RADIUS);
@@ -729,130 +745,48 @@ Visualization::initialAlignment()
 	auto sac_ia = ia->align(cloud1ds, cloud2ds, features1, features2,
 		MAX_SACIA_ITERATIONS, SAC_MIN_CORRESPONDENCE_DIST, SAC_MAX_CORRESPONDENCE_DIST);
 
-	record->progressBarUpdate(90);
+	record->progressBarUpdate(90);	
+	init_transform = sac_ia.getFinalTransformation();
+	*/
+	Eigen::Matrix4f transform;
+	transform <<
+		 0.91302,  0.081678,  0.399655, -77.4954,
+		 0.387609, 0.131557, -0.912388, 193.777,
+		-0.127099, 0.987938,  0.0884551, 79.7795,
+		 0,		   0,		  0,		  1; 
+	init_transform = transform;
 
-	Eigen::Matrix4f init_transform = sac_ia.getFinalTransformation();
-	pcl::transformPointCloud(*cloud2ds, *cloud2ds, init_transform);
-	//pcl::pointcloud<pcl::pointxyz> final = *cloud1;
-	//final += *cloud2;
+	PointCloudT::Ptr trans_data(new PointCloudT);
+	pcl::transformPointCloud(*original_data, *trans_data, init_transform);
+	
 	record->progressBarUpdate(100);
+	//===================RecordData==========================//
+	/*
 	record->statusUpdate("completed in " + QString::number(pcl_time.toc()) + "ms;");
 	std::stringstream trans;
 	Eigen::IOFormat OctaveFmt(Eigen::StreamPrecision, 0, ", ", ";\n", "", "", "[", "]");
 	trans << init_transform.format(OctaveFmt);
 	record->infoRec(QString::fromStdString(trans.str()));
 	*/
-	
-	Eigen::Matrix4f init_transform;
-	/*init_transform <<
-		-0.689044, -0.519147, -0.505673, 133.528,
-		-0.355739, -0.365619, 0.8601, 6.76199,
-		-0.631402, 0.772535, 0.0672473, 246.117,
-		0, 0, 0, 1;*/
-	init_transform <<
-		0.91302,  0.081678,  0.399655,  -77.4954,
-		0.387609,  0.131557, -0.912388,   193.777,
-		-0.127099,  0.987938, 0.0884551,   79.7795,
-		0, 0, 0, 1;
-
-	pcl::transformPointCloud(*cloud2ds, *cloud2ds, init_transform);
-	
+	//===================Visualization==========================//
 	int v1(0), v2(0);
 	viewer->createViewPort(0.0, 0.0, 0.5, 1.0, v1);
 	viewer->setBackgroundColor(0.0, 0.0, 0.0, v1);
 	viewer->addText("Before Alignment", 10, 10, "v1 text", v1);
-	//PointCloudColorHandlerCustom<PointXYZ> green(cloud1ds, 0, 255, 0);
-	//PointCloudColorHandlerCustom<PointXYZ> red(cloud2ds, 255, 0, 0);
-	//viewer->addPointCloud(cloud1ds, green, "v1_target", v1);
-	//viewer->addPointCloud(cloud2ds, red, "v1_sourse", v1);
-
 	PointCloudColorHandlerCustom<PointXYZ> green(original_model, 0, 255, 0);
 	PointCloudColorHandlerCustom<PointXYZ> red(original_data, 255, 0, 0);
 	viewer->addPointCloud(original_model, green, "v1_target", v1);
 	viewer->addPointCloud(original_data, red, "v1_sourse", v1);
-	/*
-	//===============PassthroughFilter========================//
-	pcl::PassThrough<pcl::PointXYZ> pass;
-	pass.setInputCloud(original_model);
-	pass.setFilterFieldName("z");
-	pass.setFilterLimits(-10, 10);
-	pass.setFilterLimitsNegative(true);
-	pass.filter(*surface_model);
-	pass.setInputCloud(original_data);
-	pass.filter(*surface_data);
-
-	//===============NormalEstimation========================//
-	pcl::NormalEstimationOMP<pcl::PointXYZ, pcl::Normal> ne;
-	pcl::search::KdTree<pcl::PointXYZ>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZ>());
-	ne.setSearchMethod(tree);
-	ne.setRadiusSearch(30);
-
-	ne.setInputCloud(original_model);
-	ne.compute(*normals_model);
-
-	ne.setInputCloud(surface_model);
-	ne.compute(*normals_surface);
-	
-	//=================GA Implementation=========================//
-	qDebug("Start GA!");
-	int popsize = 5;
-	double mutationrate = 0.8;
-	double crossoverrate = 1;
-	int generationmax = 50;
-	double maxstep = 0.001;
-	double leftmax = -PI / 18;
-	double rightmax = PI / 18;
-
-	Init(popsize, mutationrate, crossoverrate, generationmax,
-		maxstep, leftmax, rightmax);
-	ImplementGa();
-	*/
-	//===================Visualization==========================//
 
 	viewer->createViewPort(0.5, 0.0, 1.0, 1.0, v2);
 	viewer->setBackgroundColor(0.0, 0.0, 0.0, v2);
 	viewer->addText("After Alignment", 10, 10, "v2 text", v2);
-	PointCloudColorHandlerCustom<PointXYZ> green2(cloud1ds, 0, 255, 0);
-	PointCloudColorHandlerCustom<PointXYZ> red2(cloud2ds, 255, 0, 0);
-	viewer->addPointCloud(cloud1ds, green2, "v2_target", v2);
-	viewer->addPointCloud(cloud2ds, red2, "v2_sourse", v2);
-	//viewer->addPointCloud(datum_model, green2, "v2_target", v2);
-	//viewer->addPointCloud(datum_data, red2, "v2_sourse", v2);
+	PointCloudColorHandlerCustom<PointXYZ> green2(original_model, 0, 255, 0);
+	PointCloudColorHandlerCustom<PointXYZ> red2(trans_data, 255, 0, 0);
+	viewer->addPointCloud(original_model, green2, "v2_target", v2);
+	viewer->addPointCloud(trans_data, red2, "v2_sourse", v2);
 
-	//pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> tgt_h(datum_data, 255, 0, 255);
-	//viewer->addPointCloud(datum_data, tgt_h, "target", v2);
-
-	//viewer->spin();
-
-	//ia->viewPair(cloud1ds, cloud2ds, cloud1, cloud2);
-	//pcl::io::savePCDFile("result.pcd", final);
-	//view(final);
-
-	//======================ICP==========================//
-	qDebug("icp started...");
-	pcl::IterativeClosestPoint<PointT, PointT> icp;
-	icp.setMaxCorrespondenceDistance(0.1);
-	icp.setTransformationEpsilon(1e-10);
-	icp.setEuclideanFitnessEpsilon(0.01);
-	icp.setMaximumIterations(100);
-	icp.setInputSource(cloud2ds);
-	icp.setInputTarget(cloud1ds);
-	pcl::PointCloud<pcl::PointXYZ>::Ptr output(new pcl::PointCloud<pcl::PointXYZ>);
-	icp.align(*output);
-	double fitness;
-	fitness = icp.getFitnessScore();
-	PointCloudColorHandlerCustom<PointXYZ> blue(output, 0, 0, 255);
-	Eigen::Matrix4d icp_transform = icp.getFinalTransformation().cast<double>();
-	viewer->addPointCloud(output, blue, "v2_output", v2);
-	//pcl::transformPointCloud(*cloud2ds, *cloud2ds, icp_transform);
-	qDebug("icp finished...fitness score:%f",fitness);
-	qDebug("Rotation matrix :\n");
-	qDebug("    | %6.3f %6.3f %6.3f | \n", icp_transform(0, 0), icp_transform(0, 1), icp_transform(0, 2));
-	qDebug("R = | %6.3f %6.3f %6.3f | \n", icp_transform(1, 0), icp_transform(1, 1), icp_transform(1, 2));
-	qDebug("    | %6.3f %6.3f %6.3f | \n", icp_transform(2, 0), icp_transform(2, 1), icp_transform(2, 2));
-	qDebug("Translation vector :\n");
-	qDebug("t = < %6.3f, %6.3f, %6.3f >\n\n", icp_transform(0, 3), icp_transform(1, 3), icp_transform(2, 3));
-	viewer->spin();
+	viewer->spinOnce();
 
 	return true;
 }
@@ -974,7 +908,7 @@ Visualization::enveloped(PointCloudT::Ptr surface_model, PointCloudN::Ptr normal
 double
 Visualization::computeSurfaceVariance(std::vector<double> dist)
 {
-	double var;
+	double var = 0.0;
 	double sum = 0.0;
 	for (int i = 0; i < dist.size(); i++)
 	{
@@ -1011,38 +945,42 @@ Visualization::computeFitness(Eigen::Matrix4d &transformation)
 	alpha = 0.2;
 	beta = 0.8;
 
-	enveloped_rate = enveloped(surface_model, normals_surface, transformed_surface, dist);
+	OptimalRegistration optReg;
+	optReg.setModelCloud(surface_model);
+	optReg.setDataCloud(transformed_surface);
+	bool _enveloped = optReg.estimateEveloped(0.8);
+	qDebug("enveloped_rate: %f.", optReg.getEnvelopedRate());
+
+	//enveloped_rate = enveloped(surface_model, normals_surface, transformed_surface, dist);
+	//
+	//return enveloped_rate;
 	
-	return enveloped_rate;
-	
-	//if (_enveloped)
-	//{
-	//	//===============NormalEstimation========================//
-	//	pcl::NormalEstimationOMP<pcl::PointXYZ, pcl::Normal> ne;
-	//	pcl::search::KdTree<pcl::PointXYZ>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZ>());
-	//	ne.setSearchMethod(tree);
-	//	ne.setRadiusSearch(30);
-	//	ne.setInputCloud(transformed_data);
-	//	ne.compute(*normals_data);
+	if (_enveloped)
+	{
+		//===============NormalEstimation========================//
+		pcl::NormalEstimationOMP<pcl::PointXYZ, pcl::Normal> ne;
+		pcl::search::KdTree<pcl::PointXYZ>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZ>());
+		ne.setSearchMethod(tree);
+		ne.setRadiusSearch(30);
+		ne.setInputCloud(transformed_data);
+		ne.compute(*normals_data);
 
-	//	//===============DatumEstimation========================//
-	//	computeDatumCoefficients(original_model, normals_model, datum_model, coeff_model);
-	//	computeDatumCoefficients(transformed_data, normals_data, datum_data, coeff_data);
+		//===============DatumEstimation========================//
+		computeDatumCoefficients(original_model, normals_model, datum_model, coeff_model);
+		computeDatumCoefficients(transformed_data, normals_data, datum_data, coeff_data);
 
-	//	//===============ComputefFitness========================//
-	//	datum_error = computeDatumError(datum_model, normals_datum_model, datum_data);
-	//	dist_variance = computeSurfaceVariance(dist);
+		//===============ComputefFitness========================//
+		datum_error = computeDatumError(datum_model, normals_datum_model, datum_data);
+		dist_variance = computeSurfaceVariance(dist);
 
-	//	fitness = 1 / (1 + alpha * exp(datum_error) + beta * exp(dist_variance));
-	//	qDebug("Daturm Error: %f. Distance Var: %f. Fitness: %f.", datum_error, dist_variance, fitness);
-	//	return fitness;
-	//}
-	//else
-	//{
-	//	return 0.0;
-	//}
-
-	
+		fitness = 1 / (1 + alpha * exp(datum_error) + beta * exp(dist_variance));
+		qDebug("Daturm Error: %f. Distance Var: %f. Fitness: %f.", datum_error, dist_variance, fitness);
+		return fitness;
+	}
+	else
+	{
+		return 0.0;
+	}	
 };
 
 //GA part
@@ -1071,7 +1009,7 @@ Visualization::Curve(Chromo2 input)
 	Eigen::Matrix4d transformation = (t * r).matrix();
 
 	double y = computeFitness(transformation);
-	qDebug("fitness: %f", y);
+	//qDebug("fitness: %f", y);
 	return y;
 }
 
@@ -1087,7 +1025,7 @@ void
 Visualization::Reset()
 {
 	generationCount = 0;
-	popOperation.vecPop.clear();
+	//popOperation.vecPop.clear();
 }
 
 void
@@ -1258,7 +1196,7 @@ Visualization::Report()
 	qDebug("GenerationCount: %d.", generationCount);
 	//qDebug("bestFitness: %f.", popOperation.bestFitness);
 	//qDebug("worstFitness: %f.", popOperation.worstFitness);
-	qDebug("Max Correlation: %f.", popOperation.MaxY);
+	qDebug("Max Fitness: %f.", popOperation.MaxY);
 }
 
 bool
@@ -1322,5 +1260,132 @@ Visualization::sacSegment()
 	p2.spin();
 
 
+	return true;
+}
+
+bool
+Visualization::optimalReg()
+{
+	qDebug("Start Optimizing!");
+	PointCloudT::Ptr trans_data(new PointCloudT);
+	pcl::transformPointCloud(*original_data, *trans_data, init_transform);
+	//===============PassthroughFilter========================//
+	pcl::PassThrough<pcl::PointXYZ> pass;
+	pass.setInputCloud(original_model);
+	pass.setFilterFieldName("z");
+	pass.setFilterLimits(-10, 10);
+	pass.setFilterLimitsNegative(true);
+	pass.filter(*surface_model);
+	pass.setInputCloud(trans_data);
+	pass.filter(*surface_data);
+
+	//===============NormalEstimation========================//
+	qDebug("Start Normal Estimating!");
+	pcl::NormalEstimationOMP<pcl::PointXYZ, pcl::Normal> ne;
+	pcl::search::KdTree<pcl::PointXYZ>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZ>());
+	ne.setSearchMethod(tree);
+	ne.setRadiusSearch(30);
+
+	ne.setInputCloud(original_model);
+	//ne.compute(*normals_model);
+
+	ne.setInputCloud(surface_model);
+	//ne.compute(*normals_surface);
+
+	//=================GA Implementation=========================//
+	qDebug("Start GA!");
+	int popsize = 500;
+	double mutationrate = 0.8;
+	double crossoverrate = 1;
+	int generationmax = 20;
+	double maxstep = 0.001;
+	double leftmax = -PI / 9;
+	double rightmax = PI / 9;
+
+	Reset();
+	Init(popsize, mutationrate, crossoverrate, generationmax,
+		maxstep, leftmax, rightmax);
+	ImplementGa();
+
+	double omega, fai, kappa;
+	double a, b, c;
+	omega = popOperation.fitnessChromo.vecGenome[0];
+	fai = popOperation.fitnessChromo.vecGenome[1];
+	kappa = popOperation.fitnessChromo.vecGenome[2];
+	a = popOperation.fitnessChromo.vecGenome[3];
+	b = popOperation.fitnessChromo.vecGenome[4];
+	c = popOperation.fitnessChromo.vecGenome[5];
+
+	Eigen::AngleAxisd rollAngle(omega, Eigen::Vector3d::UnitZ());
+	Eigen::AngleAxisd yawAngle(fai, Eigen::Vector3d::UnitY());
+	Eigen::AngleAxisd pitchAngle(kappa, Eigen::Vector3d::UnitX());
+
+	Eigen::Quaternion<double> q = rollAngle * yawAngle * pitchAngle;
+
+	Eigen::Matrix3d rotationMatrix = q.matrix();
+
+	Eigen::Affine3d r(rotationMatrix);
+	Eigen::Affine3d t(Eigen::Translation3d(a, b, c));
+	Eigen::Matrix4d transformation = (t * r).matrix();
+
+	pcl::transformPointCloud(*trans_data, *final_data, init_transform);
+
+	//===================Visualization==========================//
+	int v1(0), v2(0);
+	viewer->createViewPort(0.0, 0.0, 0.5, 1.0, v1);
+	viewer->setBackgroundColor(0.0, 0.0, 0.0, v1);
+	viewer->addText("Before Optimal Registration", 10, 10, "v1 text", v1);
+	PointCloudColorHandlerCustom<PointXYZ> green(original_model, 0, 255, 0);
+	PointCloudColorHandlerCustom<PointXYZ> red(trans_data, 255, 0, 0);
+	viewer->addPointCloud(original_model, green, "v1_target", v1);
+	viewer->addPointCloud(trans_data, red, "v1_sourse", v1);
+
+
+	viewer->createViewPort(0.5, 0.0, 1.0, 1.0, v2);
+	viewer->setBackgroundColor(0.0, 0.0, 0.0, v2);
+	viewer->addText("After Optimal Registration", 10, 10, "v2 text", v2);
+	PointCloudColorHandlerCustom<PointXYZ> green2(original_model, 0, 255, 0);
+	PointCloudColorHandlerCustom<PointXYZ> red2(final_data, 255, 0, 0);
+	viewer->addPointCloud(original_model, green2, "v2_target", v2);
+	viewer->addPointCloud(final_data, red2, "v2_sourse", v2);
+	//viewer->addPointCloud(datum_model, green2, "v2_target", v2);
+	//viewer->addPointCloud(datum_data, red2, "v2_sourse", v2);
+
+	//pcl::visualization::PointCloudColorHandlerCustom<pcl::PointXYZ> tgt_h(datum_data, 255, 0, 255);
+	//viewer->addPointCloud(datum_data, tgt_h, "target", v2);
+
+	//viewer->spin();
+
+	//ia->viewPair(cloud1ds, cloud2ds, cloud1, cloud2);
+	//pcl::io::savePCDFile("result.pcd", final);
+	//view(final);
+
+	//======================ICP==========================//
+	/*
+	qDebug("icp started...");
+	pcl::IterativeClosestPoint<PointT, PointT> icp;
+	icp.setMaxCorrespondenceDistance(0.1);
+	icp.setTransformationEpsilon(1e-10);
+	icp.setEuclideanFitnessEpsilon(0.01);
+	icp.setMaximumIterations(100);
+	icp.setInputSource(cloud2ds);
+	icp.setInputTarget(cloud1ds);
+	pcl::PointCloud<pcl::PointXYZ>::Ptr output(new pcl::PointCloud<pcl::PointXYZ>);
+	icp.align(*output);
+	double fitness;
+	fitness = icp.getFitnessScore();
+	PointCloudColorHandlerCustom<PointXYZ> blue(output, 0, 0, 255);
+	Eigen::Matrix4d icp_transform = icp.getFinalTransformation().cast<double>();
+	viewer->addPointCloud(output, blue, "v2_output", v2);
+	//pcl::transformPointCloud(*cloud2ds, *cloud2ds, icp_transform);
+	qDebug("icp finished...fitness score:%f",fitness);
+	qDebug("Rotation matrix :\n");
+	qDebug("    | %6.3f %6.3f %6.3f | \n", icp_transform(0, 0), icp_transform(0, 1), icp_transform(0, 2));
+	qDebug("R = | %6.3f %6.3f %6.3f | \n", icp_transform(1, 0), icp_transform(1, 1), icp_transform(1, 2));
+	qDebug("    | %6.3f %6.3f %6.3f | \n", icp_transform(2, 0), icp_transform(2, 1), icp_transform(2, 2));
+	qDebug("Translation vector :\n");
+	qDebug("t = < %6.3f, %6.3f, %6.3f >\n\n", icp_transform(0, 3), icp_transform(1, 3), icp_transform(2, 3));
+	*/
+	viewer->spinOnce();
 	return true;
 }

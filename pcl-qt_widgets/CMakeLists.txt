@@ -15,14 +15,16 @@ set  (project_SOURCES src/main.cpp
 					  src/EGIReg.cpp
 					  src/visualization.cpp
 					  src/record.cpp
-					  src/Sac_IA.cpp)
+					  src/Sac_IA.cpp
+					  src/optimalReg.cpp)
 set  (project_HEADERS src/res.h
 	                  src/mainwindow.h
 					  src/ICPReg.h
 					  src/EGIReg.h
 					  src/visualization.h
 					  src/record.h
-					  src/Sac_IA.h)
+					  src/Sac_IA.h
+					  src/optimalReg.h)
 set  (project_FORMS   src/mainwindow.ui)
 
 # Find includes in corresponding build directories
@@ -42,5 +44,6 @@ add_executable  (qt_widgets    WIN32  ${project_SOURCES}
                                       ${project_HEADERS}
 									  ${project_FORMS}
                                       ${project_HEADERS_MOC})
-
+if (QHULL_FOUND)
 target_link_libraries (qt_widgets Qt5::Widgets ${PCL_LIBRARIES} ${VTK_LIBRARIES})
+endif() # QHULL_FOUND

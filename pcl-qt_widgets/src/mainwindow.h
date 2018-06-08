@@ -72,6 +72,7 @@ private slots:
 	void onRegistration();
 	void onInitialAlignment();
 	void onSACSegment();
+	void onOptimalReg();
 };
 
 #endif // MAINWINDOW_H

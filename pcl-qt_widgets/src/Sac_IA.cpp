@@ -44,7 +44,7 @@ Sac_IA::getFeatures(PointCloud<PointXYZ>::Ptr cloud, PointCloud<Normal>::Ptr nor
 
 	PointCloud<FPFHSignature33>::Ptr features = PointCloud<FPFHSignature33>::Ptr(new PointCloud<FPFHSignature33>);
 	search::KdTree<PointXYZ>::Ptr search_method_ptr = search::KdTree<PointXYZ>::Ptr(new search::KdTree<PointXYZ>);
-	FPFHEstimation<PointXYZ, Normal, FPFHSignature33> fpfh_est;
+	FPFHEstimationOMP<PointXYZ, Normal, FPFHSignature33> fpfh_est;
 	fpfh_est.setInputCloud(cloud);
 	fpfh_est.setInputNormals(normals);
 	fpfh_est.setSearchMethod(search_method_ptr);
@@ -57,7 +57,7 @@ PointCloud<Normal>::Ptr
 Sac_IA::getNormals(PointCloud<PointXYZ>::Ptr incloud, double normals_radius) {
 
 	PointCloud<Normal>::Ptr normalsPtr = PointCloud<Normal>::Ptr(new PointCloud<Normal>);
-	NormalEstimation<PointXYZ, Normal> norm_est;
+	NormalEstimationOMP<PointXYZ, Normal> norm_est;
 	norm_est.setInputCloud(incloud);
 	norm_est.setRadiusSearch(normals_radius);
 	norm_est.compute(*normalsPtr);
