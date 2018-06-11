@@ -229,7 +229,7 @@ OptimalRegistration::estimateInnerPoint(const pcl::PointXY point, const PointClo
 }
 
 bool
-OptimalRegistration::estimateEveloped(const double probability)
+OptimalRegistration::estimateEveloped(const double probability, std::vector<double> &dist)
 {
 	if ((model->points.size() == 0) || (data->points.size() == 0))
 	{
@@ -253,6 +253,7 @@ OptimalRegistration::estimateEveloped(const double probability)
 	int _enveloped_count = 0;
 	int total_count = 0;
 	double _enveloped_rate;
+
 	for (int i = 0; i < layers; i++)
 	{
 		PointCloudT::Ptr points_on_planes_m(new PointCloudT);
@@ -260,14 +261,49 @@ OptimalRegistration::estimateEveloped(const double probability)
 		estimatePointsBySlicing(slicing_planes[i], model, data, 1.0, points_on_planes_m, points_on_planes_d);
 		computeConvexHull(points_on_planes_m, chull_points_inside, polygons_inside);
 		computeConvexHull(points_on_planes_d, chull_points_outside, polygons_outside);
-
+		points_on_planes_m.reset(new PointCloudT);
 		for (int j = 0; j < chull_points_inside->points.size(); j++)
 		{
 			bool _enveloped_point = estimateInnerPoint(chull_points_inside->points[j], chull_points_outside);
 			if (_enveloped_point)
 				_enveloped_count++;
+			PointXYZ pt(chull_points_inside->points[j].x, chull_points_inside->points[j].x, 0.0);
+			points_on_planes_m->push_back(pt);
 		}
 		total_count += chull_points_inside->points.size();
+
+		//PointCloud<Normal>::Ptr normals(new PointCloudN);
+		//pcl::NormalEstimationOMP<pcl::PointXYZ, pcl::Normal> ne;
+		//pcl::search::KdTree<pcl::PointXYZ>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZ>());
+		//ne.setNumberOfThreads(4);
+		//ne.setSearchMethod(tree);
+		//ne.setRadiusSearch(10);
+		//ne.setInputCloud(points_on_planes_m);
+		//ne.compute(*normals);
+
+		points_on_planes_d.reset(new PointCloudT);
+		for (int l = 0; l < chull_points_outside->points.size(); l++)
+		{
+			PointXYZ pt(chull_points_outside->points[l].x, chull_points_outside->points[l].x, 0.0);
+			points_on_planes_d->push_back(pt);
+		}
+		float resolution = 128.0f;
+		pcl::octree::OctreePointCloudSearch<pcl::PointXYZ> octree(resolution);
+		octree.setInputCloud(points_on_planes_d);
+		octree.addPointsFromInputCloud();
+		int K = 1;
+		std::vector<int> pointIdxNKNSearch;
+		std::vector<float> pointNKNSquaredDistance;
+		for (int k = 0; k < points_on_planes_m->points.size(); k++)
+		{
+			octree.nearestKSearch(points_on_planes_m->points[k], K, pointIdxNKNSearch, pointNKNSquaredDistance);
+			//Eigen::Vector2d yi(chull_points_outside->points[pointIdxNKNSearch[0]].x, chull_points_outside->points[pointIdxNKNSearch[0]].y);
+			//Eigen::Vector2d xi(chull_points_inside->points[i].x, chull_points_inside->points[i].y);
+			//Eigen::Vector2d w(normals->points[i].normal_x, normals->points[i].normal_y);
+			//Eigen::Vector2d v = yi - xi;
+			//double e = v.dot(w);
+			dist.push_back(sqrt(pointNKNSquaredDistance[0]));
+		}
 	}
 	_enveloped_rate = (double)_enveloped_count / total_count;
 	enveloped_rate = _enveloped_rate;

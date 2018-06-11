@@ -27,6 +27,7 @@
 #include <pcl/filters/project_inliers.h>
 #include <pcl/segmentation/sac_segmentation.h>
 #include <pcl/surface/convex_hull.h>
+#include <pcl/features/normal_3d_omp.h>
 
 class OptimalRegistration
 {
@@ -56,7 +57,7 @@ public:
 
 	bool estimateInnerPoint(const pcl::PointXY point, const PointCloud<PointXY>::Ptr chull_points_outside);
 
-	bool estimateEveloped(const double probability);
+	bool estimateEveloped(const double probability, std::vector<double> &dist);
 
 	bool setModelCloud(PointCloudT::Ptr cloud);
 

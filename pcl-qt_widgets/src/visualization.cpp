@@ -928,7 +928,7 @@ Visualization::enveloped(PointCloudT::Ptr surface_model, PointCloudN::Ptr normal
 };
 
 double
-Visualization::computeSurfaceVariance(std::vector<double> dist)
+Visualization::computeSurfaceVariance(std::vector<double> &dist)
 {
 	double var = 0.0;
 	double sum = 0.0;
@@ -937,9 +937,10 @@ Visualization::computeSurfaceVariance(std::vector<double> dist)
 		sum = sum + dist.at(i);
 	}
 
-	for (int i = 0; i < dist.size(); i++)
+	for (int j = 0; j < dist.size(); j++)
 	{
-		var = var + sqrt(dist.at(i) - sum / dist.size());
+		double d = dist.at(j) - sum / dist.size();
+		var = var + d*d;
 	}
 	var = var / dist.size();
 	return var;
@@ -977,7 +978,7 @@ Visualization::computeFitness(Eigen::Matrix4d &transformation)
 	OptimalRegistration optReg;
 	optReg.setModelCloud(surface_model);
 	optReg.setDataCloud(transformed_surface);
-	bool _enveloped = optReg.estimateEveloped(0.7);
+	bool _enveloped = optReg.estimateEveloped(0.7, dist);
 	qDebug("enveloped_rate: %f.", optReg.getEnvelopedRate());
 
 	//enveloped_rate = enveloped(surface_model, normals_surface, transformed_surface, dist);
@@ -1008,7 +1009,7 @@ Visualization::computeFitness(Eigen::Matrix4d &transformation)
 		datum_error = computeDatumError(datum_model, datum_data, datum_normal);
 		dist_variance = computeSurfaceVariance(dist);
 
-		fitness = 1 / (1 + alpha * exp(datum_error) + beta * exp(dist_variance));
+		fitness = alpha * sqrt(datum_error) + beta * exp(dist_variance);
 		qDebug("Daturm Error: %f. Distance Var: %f. Fitness: %f.", datum_error, dist_variance, fitness);
 		return fitness;
 	}
@@ -1109,10 +1110,13 @@ Visualization::CalculateRate()
 		{
 			maxRate = Yrate;
 			maxData = Ydata;
-			popOperation.fitnessChromo = popOperation.vecPop[i];
+			
 		}
 		if (minRate > Yrate)
+		{
 			minRate = Yrate;
+			popOperation.fitnessChromo = popOperation.vecPop[i];
+		}			
 	}
 #if false
 	double maxY = 0.0, absMax = 0.0, Max = 0.0, AllMax = 0.0, test = 0.0;
@@ -1200,9 +1204,9 @@ Visualization::Epoch(Population2& newgeneration)
 		MotherChromo = GenomeRoulette();
 		FatherChromo = GenomeRoulette();
 		//进行交叉变异
-		double crossover = MotherChromo.vecGenome[1];
-		MotherChromo.vecGenome[1] = FatherChromo.vecGenome[1];
-		FatherChromo.vecGenome[1] = crossover;
+		double crossover = MotherChromo.vecGenome[i];
+		MotherChromo.vecGenome[i] = FatherChromo.vecGenome[i];
+		FatherChromo.vecGenome[i] = crossover;
 		GirlChromo = MotherChromo;
 		BoyChromo = FatherChromo;
 		//进行基因突变了
@@ -1230,8 +1234,8 @@ Visualization::Report()
 {
 	qDebug("GenerationCount: %d.", generationCount);
 	//qDebug("bestFitness: %f.", popOperation.bestFitness);
-	//qDebug("worstFitness: %f.", popOperation.worstFitness);
-	qDebug("Max Fitness: %f.", popOperation.MaxY);
+	qDebug("worstFitness: %f.", popOperation.worstFitness);
+	//qDebug("Max Fitness: %f.", popOperation.MaxY);
 }
 
 bool
@@ -1321,84 +1325,15 @@ Visualization::optimalReg()
 	computePointNormal(surface_model, surface_model_with_normals);
 	computePointNormal(surface_data, surface_data_with_normals);
 
-	/*pcl::NormalEstimationOMP<pcl::PointXYZ, pcl::Normal> ne;
-	pcl::search::KdTree<pcl::PointXYZ>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZ>());
-	ne.setNumberOfThreads(3);
-	ne.setSearchMethod(tree);
-	ne.setRadiusSearch(30);
-
-	ne.setInputCloud(original_model);
-	ne.compute(*normals_model);
-	for (size_t i = 0; i < original_model->points.size(); ++i)
-	{
-		const pcl::PointXYZ &pt = original_model->points[i];
-		const pcl::Normal &pn = normals_model->points[i];
-		pcl::PointNormal points;
-		points.x = pt.x;
-		points.y = pt.y;
-		points.z = pt.z;
-		points.normal_x = pn.normal_x;
-		points.normal_y = pn.normal_y;
-		points.normal_z = pn.normal_z;
-		model_with_normals->push_back(points);
-	}
-
-	ne.setInputCloud(original_data);
-	ne.compute(*normals_data);
-	for (size_t i = 0; i < original_data->points.size(); ++i)
-	{
-		const pcl::PointXYZ &pt = original_data->points[i];
-		const pcl::Normal &pn = normals_data->points[i];
-		pcl::PointNormal points;
-		points.x = pt.x;
-		points.y = pt.y;
-		points.z = pt.z;
-		points.normal_x = pn.normal_x;
-		points.normal_y = pn.normal_y;
-		points.normal_z = pn.normal_z;
-		data_with_normals->push_back(points);
-	}
-	ne.setInputCloud(surface_model);
-	ne.compute(*normals_surface_model);
-	for (size_t i = 0; i < surface_model->points.size(); ++i)
-	{
-		const pcl::PointXYZ &pt = surface_model->points[i];
-		const pcl::Normal &pn = normals_surface_model->points[i];
-		pcl::PointNormal points;
-		points.x = pt.x;
-		points.y = pt.y;
-		points.z = pt.z;
-		points.normal_x = pn.normal_x;
-		points.normal_y = pn.normal_y;
-		points.normal_z = pn.normal_z;
-		surface_model_with_normals->push_back(points);
-	}
-	ne.setInputCloud(surface_data);
-	ne.compute(*normals_surface_data);
-	for (size_t i = 0; i < surface_data->points.size(); ++i)
-	{
-		const pcl::PointXYZ &pt = surface_data->points[i];
-		const pcl::Normal &pn = normals_surface_data->points[i];
-		pcl::PointNormal points;
-		points.x = pt.x;
-		points.y = pt.y;
-		points.z = pt.z;
-		points.normal_x = pn.normal_x;
-		points.normal_y = pn.normal_y;
-		points.normal_z = pn.normal_z;
-		surface_data_with_normals->push_back(points);
-	}*/
-	
-
 	//=================GA Implementation=========================//
 	qDebug("Start GA!");
-	int popsize = 20;
-	double mutationrate = 0.8;
+	int popsize = 50;
+	double mutationrate = 0.4;
 	double crossoverrate = 1;
 	int generationmax = 10;
 	double maxstep = 0.001;
-	double leftmax = -PI / 9;
-	double rightmax = PI / 9;
+	double leftmax = -PI / 18;
+	double rightmax = PI / 18;
 
 	Reset();
 	Init(popsize, mutationrate, crossoverrate, generationmax,
@@ -1426,7 +1361,7 @@ Visualization::optimalReg()
 	Eigen::Affine3d t(Eigen::Translation3d(a, b, c));
 	Eigen::Matrix4d transformation = (t * r).matrix();
 
-	pcl::transformPointCloud(*trans_data, *final_data, init_transform);
+	pcl::transformPointCloud(*trans_data, *final_data, transformation);
 
 	//===================Visualization==========================//
 	int v1(0), v2(0);

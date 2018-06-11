@@ -166,7 +166,7 @@ public:
 
 	double enveloped(PointCloudT::Ptr, PointCloudN::Ptr, PointCloudT::Ptr, std::vector<double>);
 
-	double computeSurfaceVariance(std::vector<double>);
+	double computeSurfaceVariance(std::vector<double> &);
 
 	double computeFitness(Eigen::Matrix4d &transformation);
 
