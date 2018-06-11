@@ -59,10 +59,10 @@ MainWindow::MainWindow(QWidget *parent) :
 	statusLabel->setText("hello pcl!");
 
 	//Default filename
-	fileName_Model = "E:/Projects/pcl/pcl-qt_widgets/build/data/blade_surface_model.ply";
-	fileName_Data = "E:/Projects/pcl/pcl-qt_widgets/build/data/blade_surface_data.ply";
-	ui->textBrowser->setText("blade_surface_model.ply");
-	ui->textBrowser_2->setText("blade_surface_data.ply");
+	fileName_Model = "E:/Projects/pcl/pcl-qt_widgets/build/data/blade_model_01.ply";
+	fileName_Data = "E:/Projects/pcl/pcl-qt_widgets/build/data/blade_data_4mm.ply";
+	ui->textBrowser->setText("blade_model_01.ply");
+	ui->textBrowser_2->setText("blade_data_4mm.ply");
 }
 
 MainWindow::~MainWindow()

@@ -22,8 +22,9 @@
 using namespace pcl;
 
 typedef pcl::PointXYZ PointT;
-typedef pcl::PointCloud<PointT> PointCloudT;
+typedef pcl::PointCloud<pcl::PointXYZ> PointCloudT;
 typedef pcl::PointCloud<pcl::Normal> PointCloudN;
+typedef pcl::PointCloud<pcl::PointNormal> PointCloudPN;
 
 typedef pcl::PointXYZRGB PointC;
 typedef pcl::PointCloud<PointC> PointCloudC;

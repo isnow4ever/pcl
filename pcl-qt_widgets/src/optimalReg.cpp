@@ -136,7 +136,7 @@ OptimalRegistration::estimatePointsBySlicing(const std::vector<double> &slicing_
 	{		
 		if (model_dist[j] < epsilon)
 		{
-			filtered_model->points.push_back(cloud_model->points[j]);
+			filtered_model->push_back(cloud_model->points[j]);
 			//qDebug("counts: %d", counts++);
 		}		
 	}
@@ -149,7 +149,7 @@ OptimalRegistration::estimatePointsBySlicing(const std::vector<double> &slicing_
 	{
 		if (data_dist[k] < epsilon)
 		{
-			filtered_data->points.push_back(cloud_model->points[k]);
+			filtered_data->push_back(cloud_data->points[k]);
 		}
 	}
 	proj.setInputCloud(filtered_data);

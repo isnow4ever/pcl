@@ -158,9 +158,9 @@ public:
 
 	bool initialAlignment();
 
-	void computeDatumCoefficients(PointCloudT::Ptr, PointCloudN::Ptr, PointCloudT::Ptr, pcl::ModelCoefficients::Ptr);
+	void computeDatumCoefficients(PointCloud<PointNormal>::Ptr, PointCloud<PointXYZ>::Ptr, pcl::ModelCoefficients::Ptr);
 
-	double computeDatumError(PointCloudT::Ptr, PointCloudN::Ptr, PointCloudT::Ptr);
+	double computeDatumError(PointCloud<PointXYZ>::Ptr, PointCloud<PointXYZ>::Ptr, Normal&);
 
 	double computeDatumAngle(pcl::ModelCoefficients::Ptr, pcl::ModelCoefficients::Ptr);
 
@@ -175,6 +175,8 @@ public:
 	bool sacSegment();
 
 	bool optimalReg();
+
+	bool computePointNormal(const PointCloud<PointXYZ>::Ptr, PointCloud<PointNormal>::Ptr &);
 signals:
 	void finished();
 
@@ -223,7 +225,16 @@ private:
 
 	PointCloudN::Ptr normals_model;
 	PointCloudN::Ptr normals_data;
-	PointCloudN::Ptr normals_datum_model;
-	PointCloudN::Ptr normals_datum_data;
-	PointCloudN::Ptr normals_surface;
+	//PointCloudN::Ptr normals_datum_model;
+	//PointCloudN::Ptr normals_datum_data;
+	PointCloudN::Ptr normals_surface_model;
+	PointCloudN::Ptr normals_surface_data;
+
+	PointCloud<PointNormal>::Ptr data_with_normals;
+	PointCloud<PointNormal>::Ptr model_with_normals;
+	PointCloud<PointNormal>::Ptr datum_data_with_normals;
+	PointCloud<PointNormal>::Ptr datum_model_with_normals;
+	PointCloud<PointNormal>::Ptr surface_data_with_normals;
+	PointCloud<PointNormal>::Ptr surface_model_with_normals;
+
 };

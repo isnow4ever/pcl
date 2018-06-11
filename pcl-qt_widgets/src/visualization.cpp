@@ -43,15 +43,23 @@ Visualization::Visualization(QString filename, QString filename_data)
 	normal_scale = 0.0;
 	rotation = { 0.0, 0.0, 0.0 };
 
+	data_with_normals.reset(new PointCloudPN);
+	model_with_normals.reset(new PointCloudPN);
+	datum_data_with_normals.reset(new PointCloudPN);
+	datum_model_with_normals.reset(new PointCloudPN);
+	surface_data_with_normals.reset(new PointCloudPN);
+	surface_model_with_normals.reset(new PointCloudPN);
+
 	datum_data.reset(new PointCloudT);
 	datum_model.reset(new PointCloudT);
 	surface_data.reset(new PointCloudT);
 	surface_model.reset(new PointCloudT);
 	normals_model.reset(new PointCloudN);
 	normals_data.reset(new PointCloudN);
-	normals_datum_model.reset(new PointCloudN);
-	normals_datum_data.reset(new PointCloudN);
-	normals_surface.reset(new PointCloudN);
+	//normals_datum_model.reset(new PointCloudN);
+	//normals_datum_data.reset(new PointCloudN);
+	normals_surface_model.reset(new PointCloudN);
+	normals_surface_data.reset(new PointCloudN);
 }
 
 
@@ -749,11 +757,16 @@ Visualization::initialAlignment()
 	init_transform = sac_ia.getFinalTransformation();
 	*/
 	Eigen::Matrix4f transform;
+	//transform <<
+	//	 0.91302,  0.081678,  0.399655, -77.4954,
+	//	 0.387609, 0.131557, -0.912388, 193.777,
+	//	-0.127099, 0.987938,  0.0884551, 79.7795,
+	//	 0,		   0,		  0,		  1; 
 	transform <<
-		 0.91302,  0.081678,  0.399655, -77.4954,
-		 0.387609, 0.131557, -0.912388, 193.777,
-		-0.127099, 0.987938,  0.0884551, 79.7795,
-		 0,		   0,		  0,		  1; 
+		-0.858067, -0.507153, 0.080725, 109.273,
+		-0.511004, 0.858815, -0.0362297, 13.2583,
+		-0.0509539, -0.0723383, -0.996078, 396.565,
+		0, 0, 0, 1;
 	init_transform = transform;
 
 	PointCloudT::Ptr trans_data(new PointCloudT);
@@ -792,11 +805,11 @@ Visualization::initialAlignment()
 }
 
 void
-Visualization::computeDatumCoefficients(PointCloudT::Ptr cloud, PointCloudN::Ptr normals, PointCloudT::Ptr datum_plane, pcl::ModelCoefficients::Ptr coefficients)
+Visualization::computeDatumCoefficients(PointCloud<PointNormal>::Ptr cloud, PointCloud<PointXYZ>::Ptr datum_plane, pcl::ModelCoefficients::Ptr coefficients)
 {
-	PointCloudT::Ptr filtered_cloud(new PointCloudT);
+	PointCloud<PointNormal>::Ptr filtered_cloud(new PointCloud<PointNormal>);
 	// Create the filtering object
-	pcl::PassThrough<pcl::PointXYZ> pass;
+	pcl::PassThrough<pcl::PointNormal> pass;
 	pass.setInputCloud(cloud);
 	pass.setFilterFieldName("z");
 	pass.setFilterLimits(-10, 10);
@@ -809,10 +822,19 @@ Visualization::computeDatumCoefficients(PointCloudT::Ptr cloud, PointCloudN::Ptr
 	// segmentation
 	//pcl::ModelCoefficients::Ptr coefficients(new pcl::ModelCoefficients);
 	pcl::PointIndices::Ptr inliers(new pcl::PointIndices);
-
+	PointCloudN::Ptr filtered_normals(new PointCloudN);
+	PointCloudT::Ptr filtered_points(new PointCloudT);
+	for (size_t i = 0; i < filtered_cloud->points.size(); ++i)
+	{
+		const pcl::PointNormal &mls_pt = filtered_cloud->points[i];
+		pcl::PointXYZ pt(mls_pt.x, mls_pt.y, mls_pt.z);
+		pcl::Normal pn(mls_pt.normal_x, mls_pt.normal_y, mls_pt.normal_z);
+		filtered_points->push_back(pt);
+		filtered_normals->push_back(pn);
+	}
 	pcl::SACSegmentationFromNormals<pcl::PointXYZ, pcl::Normal> sac;
-	sac.setInputCloud(filtered_cloud);
-	sac.setInputNormals(normals);
+	sac.setInputCloud(filtered_points);
+	sac.setInputNormals(filtered_normals);
 	sac.setMethodType(pcl::SAC_RANSAC);
 	sac.setModelType(pcl::SACMODEL_PERPENDICULAR_PLANE);
 	//sac.setNormalDistanceWeight(0.1);
@@ -824,10 +846,10 @@ Visualization::computeDatumCoefficients(PointCloudT::Ptr cloud, PointCloudN::Ptr
 
 	sac.segment(*inliers, *coefficients);
 
-	// extract the certain field
+	// extract the certain field	 
 	pcl::ExtractIndices<pcl::PointXYZ> ei;
 	ei.setIndices(inliers);
-	ei.setInputCloud(filtered_cloud);
+	ei.setInputCloud(filtered_points);
 	ei.setNegative(true);
 	ei.filter(*datum_plane);
 	//pcl::ExtractIndices<pcl::PointXYZ> ei2;
@@ -841,7 +863,7 @@ Visualization::computeDatumCoefficients(PointCloudT::Ptr cloud, PointCloudN::Ptr
 };
 
 double
-Visualization::computeDatumError(PointCloudT::Ptr datum_model, PointCloudN::Ptr normals, PointCloudT::Ptr datum_data)
+Visualization::computeDatumError(PointCloud<PointXYZ>::Ptr datum_model, PointCloud<PointXYZ>::Ptr datum_data, Normal &normal)
 {
 	double datum_error = 0.0;
 	float resolution = 128.0f;
@@ -857,10 +879,10 @@ Visualization::computeDatumError(PointCloudT::Ptr datum_model, PointCloudN::Ptr 
 		octree.nearestKSearch(datum_model->points[i], K, pointIdxNKNSearch, pointNKNSquaredDistance);
 		Eigen::Vector3d yi(datum_data->points[pointIdxNKNSearch[0]].x, datum_data->points[pointIdxNKNSearch[0]].y, datum_data->points[pointIdxNKNSearch[0]].z);
 		Eigen::Vector3d xi(datum_model ->points[i].x, datum_model->points[i].y, datum_model->points[i].z);
-		Eigen::Vector3d w(normals->points[i].normal_x, normals->points[i].normal_y, normals->points[i].normal_z);
+		Eigen::Vector3d w(normal.normal_x, normal.normal_y, normal.normal_z);
 		Eigen::Vector3d v = yi - xi;
-
-		datum_error = datum_error + sqrt(v.dot(w));
+		double e = v.dot(w);
+		datum_error = datum_error + e*e;
 	}
 	return datum_error;
 };
@@ -926,10 +948,17 @@ Visualization::computeSurfaceVariance(std::vector<double> dist)
 double
 Visualization::computeFitness(Eigen::Matrix4d &transformation)
 {
-	PointCloudT::Ptr transformed_data(new PointCloudT);
-	PointCloudT::Ptr transformed_surface(new PointCloudT);
-	pcl::transformPointCloud(*original_data, *transformed_data, transformation);
-	pcl::transformPointCloud(*surface_data, *transformed_surface, transformation);
+	PointCloud<PointNormal>::Ptr transformed_data(new PointCloud<PointNormal>);
+	PointCloud<PointXYZ>::Ptr transformed_surface(new PointCloud<PointXYZ>);
+	PointCloud<PointNormal>::Ptr transformed_surface_with_normals(new PointCloud<PointNormal>);
+	pcl::transformPointCloudWithNormals(*data_with_normals, *transformed_data, transformation);
+	pcl::transformPointCloudWithNormals(*surface_data_with_normals, *transformed_surface_with_normals, transformation);
+	for (size_t i = 0; i < transformed_surface_with_normals->points.size(); ++i)
+	{
+		const pcl::PointNormal &mls_pt = transformed_surface_with_normals->points[i];
+		pcl::PointXYZ pt(mls_pt.x, mls_pt.y, mls_pt.z);
+		transformed_surface->push_back(pt);
+	}
 
 	pcl::ModelCoefficients::Ptr coeff_data(new pcl::ModelCoefficients);
 	pcl::ModelCoefficients::Ptr coeff_model(new pcl::ModelCoefficients);
@@ -948,7 +977,7 @@ Visualization::computeFitness(Eigen::Matrix4d &transformation)
 	OptimalRegistration optReg;
 	optReg.setModelCloud(surface_model);
 	optReg.setDataCloud(transformed_surface);
-	bool _enveloped = optReg.estimateEveloped(0.8);
+	bool _enveloped = optReg.estimateEveloped(0.7);
 	qDebug("enveloped_rate: %f.", optReg.getEnvelopedRate());
 
 	//enveloped_rate = enveloped(surface_model, normals_surface, transformed_surface, dist);
@@ -958,19 +987,25 @@ Visualization::computeFitness(Eigen::Matrix4d &transformation)
 	if (_enveloped)
 	{
 		//===============NormalEstimation========================//
-		pcl::NormalEstimationOMP<pcl::PointXYZ, pcl::Normal> ne;
-		pcl::search::KdTree<pcl::PointXYZ>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZ>());
-		ne.setSearchMethod(tree);
-		ne.setRadiusSearch(30);
-		ne.setInputCloud(transformed_data);
-		ne.compute(*normals_data);
-
+		//pcl::NormalEstimationOMP<pcl::PointXYZ, pcl::Normal> ne;
+		//pcl::search::KdTree<pcl::PointXYZ>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZ>());
+		//ne.setSearchMethod(tree);
+		//ne.setRadiusSearch(30);
+		//ne.setInputCloud(transformed_data);
+		//ne.compute(*normals_data);
 		//===============DatumEstimation========================//
-		computeDatumCoefficients(original_model, normals_model, datum_model, coeff_model);
-		computeDatumCoefficients(transformed_data, normals_data, datum_data, coeff_data);
-
+		computeDatumCoefficients(model_with_normals, datum_model, coeff_model);
+		computeDatumCoefficients(transformed_data, datum_data, coeff_data);
 		//===============ComputefFitness========================//
-		datum_error = computeDatumError(datum_model, normals_datum_model, datum_data);
+		pcl::Normal datum_normal;
+		double mA, mB, mC;
+		mA = coeff_model->values[0];
+		mB = coeff_model->values[1];
+		mC = coeff_model->values[2];
+		datum_normal.normal_x = mA / sqrt(mA*mA + mB*mB + mC*mC);
+		datum_normal.normal_y = mB / sqrt(mA*mA + mB*mB + mC*mC);
+		datum_normal.normal_z = mC / sqrt(mA*mA + mB*mB + mC*mC);		
+		datum_error = computeDatumError(datum_model, datum_data, datum_normal);
 		dist_variance = computeSurfaceVariance(dist);
 
 		fitness = 1 / (1 + alpha * exp(datum_error) + beta * exp(dist_variance));
@@ -1281,23 +1316,86 @@ Visualization::optimalReg()
 
 	//===============NormalEstimation========================//
 	qDebug("Start Normal Estimating!");
-	pcl::NormalEstimationOMP<pcl::PointXYZ, pcl::Normal> ne;
+	computePointNormal(original_model, model_with_normals);
+	computePointNormal(original_data, data_with_normals);
+	computePointNormal(surface_model, surface_model_with_normals);
+	computePointNormal(surface_data, surface_data_with_normals);
+
+	/*pcl::NormalEstimationOMP<pcl::PointXYZ, pcl::Normal> ne;
 	pcl::search::KdTree<pcl::PointXYZ>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZ>());
+	ne.setNumberOfThreads(3);
 	ne.setSearchMethod(tree);
 	ne.setRadiusSearch(30);
 
 	ne.setInputCloud(original_model);
-	//ne.compute(*normals_model);
+	ne.compute(*normals_model);
+	for (size_t i = 0; i < original_model->points.size(); ++i)
+	{
+		const pcl::PointXYZ &pt = original_model->points[i];
+		const pcl::Normal &pn = normals_model->points[i];
+		pcl::PointNormal points;
+		points.x = pt.x;
+		points.y = pt.y;
+		points.z = pt.z;
+		points.normal_x = pn.normal_x;
+		points.normal_y = pn.normal_y;
+		points.normal_z = pn.normal_z;
+		model_with_normals->push_back(points);
+	}
 
+	ne.setInputCloud(original_data);
+	ne.compute(*normals_data);
+	for (size_t i = 0; i < original_data->points.size(); ++i)
+	{
+		const pcl::PointXYZ &pt = original_data->points[i];
+		const pcl::Normal &pn = normals_data->points[i];
+		pcl::PointNormal points;
+		points.x = pt.x;
+		points.y = pt.y;
+		points.z = pt.z;
+		points.normal_x = pn.normal_x;
+		points.normal_y = pn.normal_y;
+		points.normal_z = pn.normal_z;
+		data_with_normals->push_back(points);
+	}
 	ne.setInputCloud(surface_model);
-	//ne.compute(*normals_surface);
+	ne.compute(*normals_surface_model);
+	for (size_t i = 0; i < surface_model->points.size(); ++i)
+	{
+		const pcl::PointXYZ &pt = surface_model->points[i];
+		const pcl::Normal &pn = normals_surface_model->points[i];
+		pcl::PointNormal points;
+		points.x = pt.x;
+		points.y = pt.y;
+		points.z = pt.z;
+		points.normal_x = pn.normal_x;
+		points.normal_y = pn.normal_y;
+		points.normal_z = pn.normal_z;
+		surface_model_with_normals->push_back(points);
+	}
+	ne.setInputCloud(surface_data);
+	ne.compute(*normals_surface_data);
+	for (size_t i = 0; i < surface_data->points.size(); ++i)
+	{
+		const pcl::PointXYZ &pt = surface_data->points[i];
+		const pcl::Normal &pn = normals_surface_data->points[i];
+		pcl::PointNormal points;
+		points.x = pt.x;
+		points.y = pt.y;
+		points.z = pt.z;
+		points.normal_x = pn.normal_x;
+		points.normal_y = pn.normal_y;
+		points.normal_z = pn.normal_z;
+		surface_data_with_normals->push_back(points);
+	}*/
+	
 
 	//=================GA Implementation=========================//
 	qDebug("Start GA!");
-	int popsize = 500;
+	int popsize = 20;
 	double mutationrate = 0.8;
 	double crossoverrate = 1;
-	int generationmax = 20;
+	int generationmax = 10;
 	double maxstep = 0.001;
 	double leftmax = -PI / 9;
 	double rightmax = PI / 9;
@@ -1387,5 +1485,34 @@ Visualization::optimalReg()
 	qDebug("t = < %6.3f, %6.3f, %6.3f >\n\n", icp_transform(0, 3), icp_transform(1, 3), icp_transform(2, 3));
 	*/
 	viewer->spinOnce();
+	return true;
+}
+
+bool 
+Visualization::computePointNormal(const PointCloud<PointXYZ>::Ptr cloud, PointCloud<PointNormal>::Ptr &cloud_with_normals)
+{
+	PointCloud<Normal>::Ptr normals(new PointCloudN);
+	pcl::NormalEstimationOMP<pcl::PointXYZ, pcl::Normal> ne;
+	pcl::search::KdTree<pcl::PointXYZ>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZ>());
+	ne.setNumberOfThreads(3);
+	ne.setSearchMethod(tree);
+	ne.setRadiusSearch(30);
+
+	ne.setInputCloud(cloud);
+	ne.compute(*normals);
+
+	for (size_t i = 0; i < cloud->points.size(); ++i)
+	{
+		const pcl::PointXYZ &pt = cloud->points[i];
+		const pcl::Normal &pn = normals->points[i];
+		pcl::PointNormal points;
+		points.x = pt.x;
+		points.y = pt.y;
+		points.z = pt.z;
+		points.normal_x = pn.normal_x;
+		points.normal_y = pn.normal_y;
+		points.normal_z = pn.normal_z;
+		cloud_with_normals->push_back(points);
+	}
 	return true;
 }
