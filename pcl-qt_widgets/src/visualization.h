@@ -130,6 +130,7 @@ public:
 	PointCloudT::Ptr cloud_data;
 
 	boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer;
+	boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer2;
 	pcl::console::TicToc pcl_time;
 
 	void preview(QString filename, QString filename_data);
@@ -177,6 +178,8 @@ public:
 	bool optimalReg();
 
 	bool computePointNormal(const PointCloud<PointXYZ>::Ptr, PointCloud<PointNormal>::Ptr &);
+
+	bool estimateTfBetweenPlanes(const ModelCoefficients::Ptr, const ModelCoefficients::Ptr, Eigen::Matrix4d &datum_transform);
 signals:
 	void finished();
 
