@@ -9,8 +9,15 @@ using pcl::visualization::PointCloudColorHandlerCustom;
 
 OptimalRegistration::OptimalRegistration()
 {
-	model.reset(new PointCloudT);
-	data.reset(new PointCloudT);
+	surface_model.reset(new PointCloudT);
+	surface_data.reset(new PointCloudT);
+	
+	datum_data.reset(new PointCloudT);
+	datum_model.reset(new PointCloudT);
+
+	model_with_normals.reset(new PointCloudPN);
+	data_with_normals.reset(new PointCloudPN);
+	surface_data_with_normals.reset(new PointCloudPN);
 
 	enveloped_rate = 0.0;
 }
@@ -34,7 +41,7 @@ OptimalRegistration::computePointToPlaneDistance(const PointCloudT::Ptr cloud,
 
 	double dt = 0.0;
 	double mA, mB, mC, mD, mX, mY, mZ;
-	//distance.resize(model->size());
+	//distance.resize(surface_model->size());
 	mA = plane[0];
 	mB = plane[1];
 	mC = plane[2];
@@ -180,6 +187,7 @@ OptimalRegistration::computeConvexHull(const PointCloudT::Ptr points_on_plane,
 	chull.setInputCloud(points_on_plane);
 	//chull.setDimension(3);
 	chull.reconstruct(*chull_points3D, polygons);
+	chull_points3D = points_on_plane;//²»ÇóÍ¹°ü
 	for (int j = 0; j < chull_points3D->points.size(); j++)
 	{
 		pcl::PointXY p;
@@ -231,7 +239,7 @@ OptimalRegistration::estimateInnerPoint(const pcl::PointXY point, const PointClo
 bool
 OptimalRegistration::estimateEveloped(const double probability, std::vector<double> &dist)
 {
-	if ((model->points.size() == 0) || (data->points.size() == 0))
+	if ((surface_model->points.size() == 0) || (surface_data->points.size() == 0))
 	{
 		qDebug("Invalid cloud input!");
 		return false;
@@ -240,7 +248,7 @@ OptimalRegistration::estimateEveloped(const double probability, std::vector<doub
 	std::vector<double> datum_plane = { 0.0, 0.0, 1.0, 0.0 };
 	std::vector< std::vector<double> > slicing_planes;
 	int layers = 10;
-	createSlicingPlanes(datum_plane, model, slicing_planes, layers);
+	createSlicingPlanes(datum_plane, surface_model, slicing_planes, layers);
 	//for (int i = 0; i < slicing_planes.size(); i++)
 	//{
 	//	qDebug("slicing_planes: %f, %f, %f, %f", slicing_planes[i][0], slicing_planes[i][1], slicing_planes[i][2], slicing_planes[i][3]);
@@ -258,7 +266,7 @@ OptimalRegistration::estimateEveloped(const double probability, std::vector<doub
 	{
 		PointCloudT::Ptr points_on_planes_m(new PointCloudT);
 		PointCloudT::Ptr points_on_planes_d(new PointCloudT);
-		estimatePointsBySlicing(slicing_planes[i], model, data, 1.0, points_on_planes_m, points_on_planes_d);
+		estimatePointsBySlicing(slicing_planes[i], surface_model, surface_data, 1.0, points_on_planes_m, points_on_planes_d);
 		computeConvexHull(points_on_planes_m, chull_points_inside, polygons_inside);
 		computeConvexHull(points_on_planes_d, chull_points_outside, polygons_outside);
 		points_on_planes_m.reset(new PointCloudT);
@@ -317,16 +325,32 @@ OptimalRegistration::estimateEveloped(const double probability, std::vector<doub
 bool
 OptimalRegistration::setModelCloud(PointCloudT::Ptr cloud)
 {
-	model.reset(new PointCloudT);
-	model = cloud;
+	surface_model.reset(new PointCloudT);
+	surface_model = cloud;
 	return true;
 }
 
 bool
 OptimalRegistration::setDataCloud(PointCloudT::Ptr cloud)
 {
-	data.reset(new PointCloudT);
-	data = cloud;
+	surface_data.reset(new PointCloudT);
+	surface_data = cloud;
+	return true;
+}
+
+bool
+OptimalRegistration::setDataNormalCloud(PointCloudPN::Ptr cloud)
+{
+	data_with_normals.reset(new PointCloudPN);
+	data_with_normals = cloud;
+	return true;
+}
+
+bool
+OptimalRegistration::setSurfaceDataNormalCloud(PointCloudPN::Ptr cloud)
+{
+	surface_data_with_normals.reset(new PointCloudPN);
+	surface_data_with_normals = cloud;
 	return true;
 }
 
@@ -335,3 +359,186 @@ OptimalRegistration::getEnvelopedRate()
 {
 	return enveloped_rate;
 }
+
+double
+OptimalRegistration::computeFitness(Eigen::Matrix4d &transformation)
+{
+	PointCloud<PointNormal>::Ptr transformed_data(new PointCloud<PointNormal>);
+	PointCloud<PointXYZ>::Ptr transformed_surface(new PointCloud<PointXYZ>);
+	PointCloud<PointNormal>::Ptr transformed_surface_with_normals(new PointCloud<PointNormal>);
+	pcl::transformPointCloudWithNormals(*data_with_normals, *transformed_data, transformation);
+	pcl::transformPointCloudWithNormals(*surface_data_with_normals, *transformed_surface_with_normals, transformation);
+	for (size_t i = 0; i < transformed_surface_with_normals->points.size(); ++i)
+	{
+		const pcl::PointNormal &mls_pt = transformed_surface_with_normals->points[i];
+		pcl::PointXYZ pt(mls_pt.x, mls_pt.y, mls_pt.z);
+		transformed_surface->push_back(pt);
+	}
+
+	pcl::ModelCoefficients::Ptr coeff_data(new pcl::ModelCoefficients);
+	pcl::ModelCoefficients::Ptr coeff_model(new pcl::ModelCoefficients);
+
+	//qDebug("datum plane of data: %f, %f, %f, %f\n", coeff_data->values[0], coeff_data->values[1], coeff_data->values[2], coeff_data->values[3]);
+	//qDebug("datum plane of model: %f, %f, %f, %f\n", coeff_model->values[0], coeff_model->values[1], coeff_model->values[2], coeff_model->values[3]);
+
+	double alpha, beta;
+	double datum_error, dist_variance, enveloped_rate;
+	double fitness;
+	std::vector<double> dist;
+
+	alpha = 0.2;
+	beta = 0.8;
+
+	OptimalRegistration optReg;
+	optReg.setModelCloud(surface_model);
+	optReg.setDataCloud(transformed_surface);
+	bool _enveloped = optReg.estimateEveloped(0.7, dist);
+	qDebug("enveloped_rate: %f.", optReg.getEnvelopedRate());
+
+	//enveloped_rate = enveloped(surface_model, normals_surface, transformed_surface, dist);
+	//
+	//return enveloped_rate;
+
+	if (_enveloped)
+	{
+		//===============NormalEstimation========================//
+		//pcl::NormalEstimationOMP<pcl::PointXYZ, pcl::Normal> ne;
+		//pcl::search::KdTree<pcl::PointXYZ>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZ>());
+		//ne.setSearchMethod(tree);
+		//ne.setRadiusSearch(30);
+		//ne.setInputCloud(transformed_data);
+		//ne.compute(*normals_data);
+		//===============DatumEstimation========================//
+
+		computeDatumCoefficients(model_with_normals, datum_model, coeff_model);
+		computeDatumCoefficients(transformed_data, datum_data, coeff_data);
+		//===============ComputefFitness========================//
+		pcl::Normal datum_normal;
+		double mA, mB, mC;
+		mA = coeff_model->values[0];
+		mB = coeff_model->values[1];
+		mC = coeff_model->values[2];
+		datum_normal.normal_x = mA / sqrt(mA*mA + mB*mB + mC*mC);
+		datum_normal.normal_y = mB / sqrt(mA*mA + mB*mB + mC*mC);
+		datum_normal.normal_z = mC / sqrt(mA*mA + mB*mB + mC*mC);
+		datum_error = computeDatumError(datum_model, datum_data, datum_normal);
+		dist_variance = computeSurfaceVariance(dist);
+		double sigmoid_e = 1.f / (1.f + sqrt(0.01f * datum_error));
+		double sigmoid_v = 1.f / (1.f + sqrt(dist_variance));
+		fitness = alpha * sigmoid_e + beta * sigmoid_v;
+		qDebug("Daturm Error: %f. Distance Var: %f. Fitness: %f.", datum_error, dist_variance, fitness);
+		return fitness;
+	}
+	else
+	{
+		return 0.0;
+	}
+}
+
+void
+OptimalRegistration::computeDatumCoefficients(PointCloud<PointNormal>::Ptr cloud, PointCloud<PointXYZ>::Ptr datum_plane, pcl::ModelCoefficients::Ptr coefficients)
+{
+	PointCloud<PointNormal>::Ptr filtered_cloud(new PointCloud<PointNormal>);
+	// Create the filtering object
+	pcl::PassThrough<pcl::PointNormal> pass;
+	pass.setInputCloud(cloud);
+	pass.setFilterFieldName("z");
+	pass.setFilterLimits(-10, 10);
+
+	pass.filter(*filtered_cloud);
+	//pass.setFilterLimitsNegative (true);
+
+
+	//================segmentation=========================//
+	// segmentation
+	//pcl::ModelCoefficients::Ptr coefficients(new pcl::ModelCoefficients);
+	pcl::PointIndices::Ptr inliers(new pcl::PointIndices);
+	PointCloudN::Ptr filtered_normals(new PointCloudN);
+	PointCloudT::Ptr filtered_points(new PointCloudT);
+	for (size_t i = 0; i < filtered_cloud->points.size(); ++i)
+	{
+		const pcl::PointNormal &mls_pt = filtered_cloud->points[i];
+		pcl::PointXYZ pt(mls_pt.x, mls_pt.y, mls_pt.z);
+		pcl::Normal pn(mls_pt.normal_x, mls_pt.normal_y, mls_pt.normal_z);
+		filtered_points->push_back(pt);
+		filtered_normals->push_back(pn);
+	}
+	pcl::SACSegmentationFromNormals<pcl::PointXYZ, pcl::Normal> sac;
+	sac.setInputCloud(filtered_points);
+	sac.setInputNormals(filtered_normals);
+	sac.setMethodType(pcl::SAC_RANSAC);
+	sac.setModelType(pcl::SACMODEL_PERPENDICULAR_PLANE);
+	//sac.setNormalDistanceWeight(0.1);
+	sac.setAxis(Eigen::Vector3f(0, 0, 1));
+	sac.setEpsAngle(0.1);
+	sac.setDistanceThreshold(0.1);
+	sac.setMaxIterations(100);
+	sac.setProbability(0.95);
+
+	sac.segment(*inliers, *coefficients);
+
+	// extract the certain field	 
+	pcl::ExtractIndices<pcl::PointXYZ> ei;
+	ei.setIndices(inliers);
+	ei.setInputCloud(filtered_points);
+	ei.setNegative(false);
+	ei.filter(*datum_plane);
+	//pcl::ExtractIndices<pcl::PointXYZ> ei2;
+	//ei2.setIndices(inliers);
+	//ei2.setInputCloud(cloud);
+	//ei2.setNegative(false);
+	//ei2.filter(*surface);
+
+
+	return;
+};
+
+double
+OptimalRegistration::computeDatumError(PointCloud<PointXYZ>::Ptr datum_model, PointCloud<PointXYZ>::Ptr datum_data, Normal &normal)
+{
+	double datum_error = 0.0;
+	float resolution = 128.0f;
+	pcl::octree::OctreePointCloudSearch<pcl::PointXYZ> octree(resolution);
+	octree.setInputCloud(datum_data);
+	octree.addPointsFromInputCloud();
+	int K = 2;
+	std::vector<int> pointIdxNKNSearch;
+	std::vector<float> pointNKNSquaredDistance;
+	int scale = datum_model->size();
+	for (int i = 0; i < scale; i++)
+	{
+		octree.nearestKSearch(datum_model->points[i], K, pointIdxNKNSearch, pointNKNSquaredDistance);
+		Eigen::Vector3d yi(datum_data->points[pointIdxNKNSearch[0]].x, datum_data->points[pointIdxNKNSearch[0]].y, datum_data->points[pointIdxNKNSearch[0]].z);
+		Eigen::Vector3d xi(datum_model->points[i].x, datum_model->points[i].y, datum_model->points[i].z);
+		Eigen::Vector3d w(normal.normal_x, normal.normal_y, normal.normal_z);
+		Eigen::Vector3d v = yi - xi;
+		double e = v.dot(w);
+		datum_error = datum_error + e*e;
+	}
+	return datum_error;
+};
+
+double
+OptimalRegistration::computeDatumAngle(pcl::ModelCoefficients::Ptr coeff_model, pcl::ModelCoefficients::Ptr coeff_data)
+{
+	return 0.0;
+};
+
+double
+OptimalRegistration::computeSurfaceVariance(std::vector<double> &dist)
+{
+	double var = 0.0;
+	double sum = 0.0;
+	for (int i = 0; i < dist.size(); i++)
+	{
+		sum = sum + dist.at(i);
+	}
+
+	for (int j = 0; j < dist.size(); j++)
+	{
+		double d = dist.at(j) - sum / dist.size();
+		var = var + d*d;
+	}
+	var = var / dist.size();
+	return var;
+};

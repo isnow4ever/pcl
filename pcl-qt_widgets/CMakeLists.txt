@@ -8,6 +8,8 @@ find_package (PCL REQUIRED)
 include_directories (${PCL_INCLUDE_DIRS})
 link_directories    (${PCL_LIBRARY_DIRS})
 add_definitions     (${PCL_DEFINITIONS})
+INCLUDE_DIRECTORIES (galib)
+LINK_DIRECTORIES (galib)
 
 set  (project_SOURCES src/main.cpp
 					  src/mainwindow.cpp
@@ -45,5 +47,5 @@ add_executable  (qt_widgets    WIN32  ${project_SOURCES}
 									  ${project_FORMS}
                                       ${project_HEADERS_MOC})
 if (QHULL_FOUND)
-target_link_libraries (qt_widgets Qt5::Widgets ${PCL_LIBRARIES} ${VTK_LIBRARIES})
+target_link_libraries (qt_widgets Qt5::Widgets ${PCL_LIBRARIES} ${VTK_LIBRARIES} ga)
 endif() # QHULL_FOUND

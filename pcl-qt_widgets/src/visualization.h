@@ -14,7 +14,8 @@
 #include <pcl/features/fpfh.h>
 #include <pcl/visualization/histogram_visualizer.h>
 #include <pcl/visualization/pcl_plotter.h>
-
+#include <ga/ga.h>
+#include "ga/GARealGenome.h"
 #include <iostream>
 #include <string>
 
@@ -180,6 +181,9 @@ public:
 	bool computePointNormal(const PointCloud<PointXYZ>::Ptr, PointCloud<PointNormal>::Ptr &);
 
 	bool estimateTfBetweenPlanes(const ModelCoefficients::Ptr, const ModelCoefficients::Ptr, Eigen::Matrix4d &datum_transform);
+
+	//float objective(GAGenome &);
+
 signals:
 	void finished();
 
@@ -223,8 +227,8 @@ private:
 
 	PointCloudT::Ptr datum_data;
 	PointCloudT::Ptr datum_model;
-	PointCloudT::Ptr surface_data;
-	PointCloudT::Ptr surface_model;
+	//PointCloudT::Ptr surface_data;
+	//PointCloudT::Ptr surface_model;
 
 	PointCloudN::Ptr normals_model;
 	PointCloudN::Ptr normals_data;
@@ -233,11 +237,16 @@ private:
 	PointCloudN::Ptr normals_surface_model;
 	PointCloudN::Ptr normals_surface_data;
 
-	PointCloud<PointNormal>::Ptr data_with_normals;
+	//PointCloud<PointNormal>::Ptr data_with_normals;
 	PointCloud<PointNormal>::Ptr model_with_normals;
 	PointCloud<PointNormal>::Ptr datum_data_with_normals;
 	PointCloud<PointNormal>::Ptr datum_model_with_normals;
-	PointCloud<PointNormal>::Ptr surface_data_with_normals;
+	//PointCloud<PointNormal>::Ptr surface_data_with_normals;
 	PointCloud<PointNormal>::Ptr surface_model_with_normals;
 
 };
+float objective(GAGenome &);
+PointCloudT::Ptr surface_data;
+PointCloudT::Ptr surface_model;
+PointCloud<PointNormal>::Ptr data_with_normals;
+PointCloud<PointNormal>::Ptr surface_data_with_normals;

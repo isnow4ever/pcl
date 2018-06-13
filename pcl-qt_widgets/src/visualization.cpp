@@ -712,8 +712,8 @@ bool
 Visualization::initialAlignment()
 {
 	//===================Sac-IA==========================//
-	/*
-	const double FILTER_LIMIT = 1000.0;
+	
+	/*const double FILTER_LIMIT = 1000.0;
 	const int MAX_SACIA_ITERATIONS = 2000;
 
 	const float VOXEL_GRID_SIZE = 3;
@@ -757,30 +757,30 @@ Visualization::initialAlignment()
 	init_transform = sac_ia.getFinalTransformation();
 	*/
 	Eigen::Matrix4f transform;
-	//transform <<
-	//	 0.91302,  0.081678,  0.399655, -77.4954,
-	//	 0.387609, 0.131557, -0.912388, 193.777,
-	//	-0.127099, 0.987938,  0.0884551, 79.7795,
-	//	 0,		   0,		  0,		  1; 
 	transform <<
-		-0.858067, -0.507153, 0.080725, 109.273,
-		-0.511004, 0.858815, -0.0362297, 13.2583,
-		-0.0509539, -0.0723383, -0.996078, 396.565,
-		0, 0, 0, 1;
+		 -0.663605,   -0.67002,  -0.332719,     118.56,
+		 -0.248429,  -0.222142,   0.942834,   -2.34107,
+		 -0.705629,   0.708326, -0.0190379,    253.189,
+          0,          0,          0,          1; //
+	//transform <<
+	//	-0.858067, -0.507153, 0.080725, 109.273,
+	//	-0.511004, 0.858815, -0.0362297, 13.2583,
+	//	-0.0509539, -0.0723383, -0.996078, 396.565,
+	//	0, 0, 0, 1;
 	init_transform = transform;
-
+	
 	PointCloudT::Ptr trans_data(new PointCloudT);
 	pcl::transformPointCloud(*original_data, *trans_data, init_transform);
 	
 	record->progressBarUpdate(100);
 	//===================RecordData==========================//
-	/*
+
 	record->statusUpdate("completed in " + QString::number(pcl_time.toc()) + "ms;");
 	std::stringstream trans;
 	Eigen::IOFormat OctaveFmt(Eigen::StreamPrecision, 0, ", ", ";\n", "", "", "[", "]");
 	trans << init_transform.format(OctaveFmt);
 	record->infoRec(QString::fromStdString(trans.str()));
-	*/
+
 	//===================Visualization==========================//
 	int v1(1), v2(2);
 	viewer->createViewPort(0.0, 0.0, 0.5, 1.0, v1);
@@ -1235,6 +1235,7 @@ Visualization::ImplementGa()
 
 		Epoch(popOperation);
 		generationCount++;
+		record->progressBarUpdate(100 * (float)i / (float)popOperation.generationMax);
 	}
 }
 
@@ -1385,9 +1386,9 @@ Visualization::optimalReg()
 
 	//=================GA Implementation=========================//
 	qDebug("Start GA!");
-	int popsize = 50;
-	double mutationrate = 0.2;
-	double crossoverrate = 0.4;
+	/*int popsize = 50;
+	double mutationrate = 0.01;
+	double crossoverrate = 0.9;
 	int generationmax = 10;
 	double maxstep = 0.0001;
 	double leftmax = -10.0f * PI;
@@ -1396,16 +1397,49 @@ Visualization::optimalReg()
 	Reset();
 	Init(popsize, mutationrate, crossoverrate, generationmax,
 		maxstep, leftmax, rightmax);
-	ImplementGa();
+	ImplementGa();*/
 
+	GARealAlleleSetArray alleles;
+	alleles.add(-0.01f * PI, 0.01f * PI, GAAllele::EXCLUSIVE, GAAllele::EXCLUSIVE);
+	alleles.add(-0.1f * PI, 0.1f * PI, GAAllele::EXCLUSIVE, GAAllele::EXCLUSIVE);
+	alleles.add(-0.01f * PI, 0.01f * PI, GAAllele::EXCLUSIVE, GAAllele::EXCLUSIVE);
+	alleles.add(-20.f, 20.f, GAAllele::EXCLUSIVE, GAAllele::EXCLUSIVE);
+	alleles.add(-20.f, 20.f, GAAllele::EXCLUSIVE, GAAllele::EXCLUSIVE);
+	alleles.add(-0.5f, 0.5f, GAAllele::EXCLUSIVE, GAAllele::EXCLUSIVE);
+
+
+	GARealGenome genome(alleles, objective);
+
+	GASimpleGA ga(genome);
+	ga.minimize();		// by default we want to minimize the objective
+	//ga.scaling(scale);		// set the scaling method to our sharing
+	ga.populationSize(50);	// how many individuals in the population
+	ga.nGenerations(25);		// number of generations to evolve
+	ga.pMutation(0.001);		// likelihood of mutating new offspring
+	ga.pCrossover(0.9);		// likelihood of crossing over parents
+	ga.scoreFilename("bog.dat");	// name of file for scores
+	ga.scoreFrequency(1);		// keep the scores of every generation
+	ga.flushFrequency(10);	// specify how often to write the score to disk
+	ga.selectScores(GAStatistics::AllScores);
+	ga.initialize();
+	while (!ga.done()) ga.step();
 	double omega, fai, kappa;
 	double a, b, c;
-	omega = 0.001f * popOperation.fitnessChromo.vecGenome[0];
-	fai = 0.01f * popOperation.fitnessChromo.vecGenome[1];
-	kappa = 0.001f * popOperation.fitnessChromo.vecGenome[2];
-	a = popOperation.fitnessChromo.vecGenome[3];
-	b = popOperation.fitnessChromo.vecGenome[4];
-	c = 0.01f * popOperation.fitnessChromo.vecGenome[5];
+	//omega = 0.001f * popOperation.fitnessChromo.vecGenome[0];
+	//fai = 0.01f * popOperation.fitnessChromo.vecGenome[1];
+	//kappa = 0.001f * popOperation.fitnessChromo.vecGenome[2];
+	//a = popOperation.fitnessChromo.vecGenome[3];
+	//b = popOperation.fitnessChromo.vecGenome[4];
+	//c = 0.01f * popOperation.fitnessChromo.vecGenome[5];
+
+	GARealGenome& bestGenome = (GARealGenome&)ga.statistics().bestIndividual();
+
+	omega = bestGenome.gene(0);
+	fai = bestGenome.gene(1);
+	kappa = bestGenome.gene(2);
+	a = bestGenome.gene(3);
+	b = bestGenome.gene(4);
+	c = bestGenome.gene(5);
 
 	Eigen::AngleAxisd rollAngle(omega, Eigen::Vector3d::UnitZ());
 	Eigen::AngleAxisd yawAngle(fai, Eigen::Vector3d::UnitY());
@@ -1539,4 +1573,39 @@ Visualization::estimateTfBetweenPlanes(const ModelCoefficients::Ptr coeff_model,
 	datum_transform = (tl * ro).matrix();
 
 	return true;
+}
+
+float objective(GAGenome &g)
+{
+	GARealGenome& genome = (GARealGenome&)g;
+
+	float omega, fai, kappa;
+	float a, b, c;
+	omega = genome.gene(0);
+	fai = genome.gene(1);
+	kappa = genome.gene(2);
+	a = genome.gene(3);
+	b = genome.gene(4);
+	c = genome.gene(5);
+	Eigen::AngleAxisd rollAngle(omega, Eigen::Vector3d::UnitZ());
+	Eigen::AngleAxisd yawAngle(fai, Eigen::Vector3d::UnitY());
+	Eigen::AngleAxisd pitchAngle(kappa, Eigen::Vector3d::UnitX());
+
+	Eigen::Quaternion<double> q = rollAngle * yawAngle * pitchAngle;
+
+	Eigen::Matrix3d rotationMatrix = q.matrix();
+
+	Eigen::Affine3d r(rotationMatrix);
+	Eigen::Affine3d t(Eigen::Translation3d(a, b, c));
+	Eigen::Matrix4d transformation = (t * r).matrix();
+
+	OptimalRegistration optReg;
+	optReg.setDataCloud(surface_data);
+	optReg.setDataNormalCloud(data_with_normals);
+	optReg.setModelCloud(surface_model);
+	optReg.setSurfaceDataNormalCloud(surface_data_with_normals);
+	
+	double y = optReg.computeFitness(transformation);
+
+	return (float)y;
 }

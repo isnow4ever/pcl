@@ -21,13 +21,14 @@
 #include <Eigen/Core>
 #include "pcl/point_cloud.h" 
 #include "pcl/kdtree/kdtree_flann.h" 
-#include "pcl/filters/passthrough.h" 
 #include "pcl/filters/voxel_grid.h" 
 #include "pcl/features/fpfh.h" 
 #include <pcl/filters/project_inliers.h>
 #include <pcl/segmentation/sac_segmentation.h>
 #include <pcl/surface/convex_hull.h>
 #include <pcl/features/normal_3d_omp.h>
+#include <pcl/filters/passthrough.h>
+#include <pcl/filters/extract_indices.h>
 
 class OptimalRegistration
 {
@@ -63,10 +64,31 @@ public:
 
 	bool setDataCloud(PointCloudT::Ptr cloud);
 
+	bool setDataNormalCloud(PointCloudPN::Ptr cloud);
+
+	bool setSurfaceDataNormalCloud(PointCloudPN::Ptr cloud);
+
 	double getEnvelopedRate();
+
+	double computeFitness(Eigen::Matrix4d &transformation);
+
+	void computeDatumCoefficients(PointCloud<PointNormal>::Ptr, PointCloud<PointXYZ>::Ptr, pcl::ModelCoefficients::Ptr);
+
+	double computeDatumError(PointCloud<PointXYZ>::Ptr, PointCloud<PointXYZ>::Ptr, Normal&);
+
+	double computeDatumAngle(pcl::ModelCoefficients::Ptr, pcl::ModelCoefficients::Ptr);
+
+	double computeSurfaceVariance(std::vector<double> &);
+
 private:
-	PointCloudT::Ptr model;
-	PointCloudT::Ptr data;
+	PointCloudT::Ptr datum_data;
+	PointCloudT::Ptr datum_model;
+
+	PointCloudT::Ptr surface_model;
+	PointCloudT::Ptr surface_data;
+	PointCloudPN::Ptr model_with_normals;
+	PointCloudPN::Ptr data_with_normals;
+	PointCloudPN::Ptr surface_data_with_normals;
 
 	double enveloped_rate;
 };
