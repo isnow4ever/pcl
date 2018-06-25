@@ -227,8 +227,8 @@ private:
 
 	PointCloudT::Ptr datum_data;
 	PointCloudT::Ptr datum_model;
-	//PointCloudT::Ptr surface_data;
-	//PointCloudT::Ptr surface_model;
+	PointCloudT::Ptr surface_data;
+	PointCloudT::Ptr surface_model;
 
 	PointCloudN::Ptr normals_model;
 	PointCloudN::Ptr normals_data;
@@ -237,16 +237,16 @@ private:
 	PointCloudN::Ptr normals_surface_model;
 	PointCloudN::Ptr normals_surface_data;
 
-	//PointCloud<PointNormal>::Ptr data_with_normals;
+	PointCloud<PointNormal>::Ptr data_with_normals;
 	PointCloud<PointNormal>::Ptr model_with_normals;
 	PointCloud<PointNormal>::Ptr datum_data_with_normals;
 	PointCloud<PointNormal>::Ptr datum_model_with_normals;
-	//PointCloud<PointNormal>::Ptr surface_data_with_normals;
+	PointCloud<PointNormal>::Ptr surface_data_with_normals;
 	PointCloud<PointNormal>::Ptr surface_model_with_normals;
 
 };
-float objective(GAGenome &);
-PointCloudT::Ptr surface_data;
-PointCloudT::Ptr surface_model;
-PointCloud<PointNormal>::Ptr data_with_normals;
-PointCloud<PointNormal>::Ptr surface_data_with_normals;
+//float objective(GAGenome &);
+//PointCloudT::Ptr surface_data;
+//PointCloudT::Ptr surface_model;
+//PointCloud<PointNormal>::Ptr data_with_normals;
+//PointCloud<PointNormal>::Ptr surface_data_with_normals;

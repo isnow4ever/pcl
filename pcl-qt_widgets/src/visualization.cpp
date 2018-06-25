@@ -1384,6 +1384,79 @@ Visualization::optimalReg()
 	computePointNormal(surface_model, surface_model_with_normals);
 	computePointNormal(surface_data, surface_data_with_normals);
 
+	qDebug("Save model_with_normals.txt!");
+	QFile file1("model_with_normals.txt");
+	if (!file1.open(QIODevice::Truncate | QFile::ReadWrite | QFile::Text))
+		emit record->statusUpdate("can't open model_with_normals.txt");
+	QTextStream in1(&file1);
+	int size1 = model_with_normals->size();
+	for (int i = 0; i < size1; i++)
+	{
+		in1 << model_with_normals->points[i].x << " "
+			<< model_with_normals->points[i].y << " "
+			<< model_with_normals->points[i].z << " " 
+			<< model_with_normals->points[i].normal_x << " "
+			<< model_with_normals->points[i].normal_y << " "
+			<< model_with_normals->points[i].normal_z << endl;
+		record->progressBarUpdate(int(100 * i / size1));
+	}
+	file1.close();
+
+	qDebug("Save data_with_normals.txt!");
+	QFile file2("data_with_normals.txt");
+	if (!file2.open(QIODevice::Truncate | QFile::ReadWrite | QFile::Text))
+		emit record->statusUpdate("can't open data_with_normals.txt");
+	QTextStream in2(&file2);
+	int size2 = data_with_normals->size();
+	for (int i = 0; i < size2; i++)
+	{
+		in2 << data_with_normals->points[i].x << " "
+			<< data_with_normals->points[i].y << " "
+			<< data_with_normals->points[i].z << " "
+			<< data_with_normals->points[i].normal_x << " "
+			<< data_with_normals->points[i].normal_y << " "
+			<< data_with_normals->points[i].normal_z << endl;
+		record->progressBarUpdate(int(100 * i / size2));
+	}
+	file2.close();
+
+	qDebug("Save surface_model_with_normals.txt!");
+	QFile file3("surface_model_with_normals.txt");
+	if (!file3.open(QIODevice::Truncate | QFile::ReadWrite | QFile::Text))
+		emit record->statusUpdate("can't open surface_model_with_normals.txt");
+	QTextStream in3(&file3);
+	int size3 = surface_model_with_normals->size();
+	for (int i = 0; i < size3; i++)
+	{
+		in3 << surface_model_with_normals->points[i].x << " "
+			<< surface_model_with_normals->points[i].y << " "
+			<< surface_model_with_normals->points[i].z << " "
+			<< surface_model_with_normals->points[i].normal_x << " "
+			<< surface_model_with_normals->points[i].normal_y << " "
+			<< surface_model_with_normals->points[i].normal_z << endl;
+		record->progressBarUpdate(int(100 * i / size3));
+	}
+	file3.close();
+
+	qDebug("Save surface_data_with_normals.txt!");
+	QFile file4("surface_data_with_normals.txt");
+	if (!file4.open(QIODevice::Truncate | QFile::ReadWrite | QFile::Text))
+		emit record->statusUpdate("can't open surface_data_with_normals.txt");
+	QTextStream in4(&file4);
+	int size4 = surface_data_with_normals->size();
+	for (int i = 0; i < size4; i++)
+	{
+		in4 << surface_data_with_normals->points[i].x << " "
+			<< surface_data_with_normals->points[i].y << " "
+			<< surface_data_with_normals->points[i].z << " "
+			<< surface_data_with_normals->points[i].normal_x << " "
+			<< surface_data_with_normals->points[i].normal_y << " "
+			<< surface_data_with_normals->points[i].normal_z << endl;
+		record->progressBarUpdate(int(100 * i / size4));
+	}
+	file4.close();
+
+	return true;
 	//=================GA Implementation=========================//
 	qDebug("Start GA!");
 	/*int popsize = 50;
@@ -1399,7 +1472,7 @@ Visualization::optimalReg()
 		maxstep, leftmax, rightmax);
 	ImplementGa();*/
 
-	GARealAlleleSetArray alleles;
+	/*GARealAlleleSetArray alleles;
 	alleles.add(-0.01f * PI, 0.01f * PI, GAAllele::EXCLUSIVE, GAAllele::EXCLUSIVE);
 	alleles.add(-0.1f * PI, 0.1f * PI, GAAllele::EXCLUSIVE, GAAllele::EXCLUSIVE);
 	alleles.add(-0.01f * PI, 0.01f * PI, GAAllele::EXCLUSIVE, GAAllele::EXCLUSIVE);
@@ -1454,7 +1527,7 @@ Visualization::optimalReg()
 	Eigen::Matrix4d transformation = (t * r).matrix();
 
 	pcl::transformPointCloud(*trans_data, *final_data, transformation);
-
+	*/
 	//===================Visualization==========================//
 	//int v1(0), v2(0);
 	viewer->createViewPort(0.0, 0.0, 0.5, 1.0, v1);
@@ -1575,7 +1648,7 @@ Visualization::estimateTfBetweenPlanes(const ModelCoefficients::Ptr coeff_model,
 	return true;
 }
 
-float objective(GAGenome &g)
+/*float objective(GAGenome &g)
 {
 	GARealGenome& genome = (GARealGenome&)g;
 
@@ -1608,4 +1681,4 @@ float objective(GAGenome &g)
 	double y = optReg.computeFitness(transformation);
 
 	return (float)y;
-}
+}*/
