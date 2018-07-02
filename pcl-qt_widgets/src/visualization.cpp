@@ -782,7 +782,7 @@ Visualization::initialAlignment()
 	record->infoRec(QString::fromStdString(trans.str()));
 
 	//===================Visualization==========================//
-	int v1(1), v2(2);
+	int v1(0), v2(0);
 	viewer->createViewPort(0.0, 0.0, 0.5, 1.0, v1);
 	viewer->setBackgroundColor(0.0, 0.0, 0.0, v1);
 	viewer->addText("Before Alignment", 10, 10, "v1 text", v1);
@@ -850,7 +850,7 @@ Visualization::computeDatumCoefficients(PointCloud<PointNormal>::Ptr cloud, Poin
 	pcl::ExtractIndices<pcl::PointXYZ> ei;
 	ei.setIndices(inliers);
 	ei.setInputCloud(filtered_points);
-	ei.setNegative(false);
+	ei.setNegative(true);
 	ei.filter(*datum_plane);
 	//pcl::ExtractIndices<pcl::PointXYZ> ei2;
 	//ei2.setIndices(inliers);
@@ -1008,9 +1008,8 @@ Visualization::computeFitness(Eigen::Matrix4d &transformation)
 		datum_normal.normal_z = mC / sqrt(mA*mA + mB*mB + mC*mC);		
 		datum_error = computeDatumError(datum_model, datum_data, datum_normal);
 		dist_variance = computeSurfaceVariance(dist);
-		double sigmoid_e = 1.f / (1.f + sqrt(0.01f * datum_error));
-		double sigmoid_v = 1.f / (1.f + sqrt(dist_variance));
-		fitness = alpha * sigmoid_e + beta * sigmoid_v;
+
+		fitness = alpha * sqrt(datum_error) + beta * exp(dist_variance);
 		qDebug("Daturm Error: %f. Distance Var: %f. Fitness: %f.", datum_error, dist_variance, fitness);
 		return fitness;
 	}
@@ -1026,12 +1025,13 @@ Visualization::Curve(Chromo2 input)
 {
 	double omega, fai, kappa;
 	double a, b, c;
-	omega = 0.001f * input.vecGenome[0];
-	fai = 0.01f * input.vecGenome[1];
-	kappa = 0.001f * input.vecGenome[2];
+	omega = input.vecGenome[0];
+	fai = input.vecGenome[1];
+	kappa = input.vecGenome[2];
 	a = input.vecGenome[3];
 	b = input.vecGenome[4];
-	c = 0.01f * input.vecGenome[5];
+	c = input.vecGenome[5];
+
 	Eigen::AngleAxisd rollAngle(omega, Eigen::Vector3d::UnitZ());
 	Eigen::AngleAxisd yawAngle(fai, Eigen::Vector3d::UnitY());
 	Eigen::AngleAxisd pitchAngle(kappa, Eigen::Vector3d::UnitX());
@@ -1100,7 +1100,6 @@ Visualization::CalculateRate()
 	minRate = Yrate;
 	AllRate = Yrate;
 	maxData = Ydata;
-	int count = 0;
 	for (int i = 1; i < popOperation.popSize; i++)
 	{
 		Ydata = Curve(popOperation.vecPop[i]);
@@ -1111,11 +1110,12 @@ Visualization::CalculateRate()
 		{
 			maxRate = Yrate;
 			maxData = Ydata;
-			popOperation.fitnessChromo = popOperation.vecPop[i];
+			
 		}
-		if ( (minRate > Yrate)&&(Yrate != 0.0) )
+		if (minRate > Yrate)
 		{
-			minRate = Yrate;			
+			minRate = Yrate;
+			popOperation.fitnessChromo = popOperation.vecPop[i];
 		}			
 	}
 #if false
@@ -1199,31 +1199,22 @@ Visualization::Epoch(Population2& newgeneration)
 	CalculateRate();
 	tempGeneration = popOperation.vecPop;
 	Chromo2 MotherChromo, FatherChromo, GirlChromo, BoyChromo;
-	for (int i = 0; i < popOperation.popSize; i+=2)
+	for (int i = 0; i < popOperation.popSize; i += 2)
 	{
 		MotherChromo = GenomeRoulette();
 		FatherChromo = GenomeRoulette();
 		//进行交叉变异
-		for (unsigned int j = 0; j < popOperation.vecPop[i].chromoLength; j++)
-		{
-			if (Random() < popOperation.crossoverRate)
-			{
-				double crossover = MotherChromo.vecGenome[j];
-				MotherChromo.vecGenome[j] = FatherChromo.vecGenome[j];
-				FatherChromo.vecGenome[j] = crossover;
-				j = popOperation.vecPop[i].chromoLength;
-			}
-		}		
+		double crossover = MotherChromo.vecGenome[i];
+		MotherChromo.vecGenome[i] = FatherChromo.vecGenome[i];
+		FatherChromo.vecGenome[i] = crossover;
 		GirlChromo = MotherChromo;
 		BoyChromo = FatherChromo;
-				
 		//进行基因突变了
 		Mutate(GirlChromo);
 		Mutate(BoyChromo);
 		popOperation.vecPop[i].vecGenome = GirlChromo.vecGenome;
 		popOperation.vecPop[i + 1].vecGenome = BoyChromo.vecGenome;
 	}
-	newgeneration.vecPop = popOperation.vecPop;
 	//newgeneration.vecPop = tempGeneration;
 }
 
@@ -1243,7 +1234,7 @@ void
 Visualization::Report()
 {
 	qDebug("GenerationCount: %d.", generationCount);
-	qDebug("bestFitness: %f.", popOperation.bestFitness);
+	//qDebug("bestFitness: %f.", popOperation.bestFitness);
 	qDebug("worstFitness: %f.", popOperation.worstFitness);
 	//qDebug("Max Fitness: %f.", popOperation.MaxY);
 }
@@ -1316,71 +1307,22 @@ bool
 Visualization::optimalReg()
 {
 	qDebug("Start Optimizing!");
-	//===============NormalEstimation========================//
-	qDebug("Start Normal Estimating!");
-	computePointNormal(original_model, model_with_normals);
-	computePointNormal(original_data, data_with_normals);
-
-	//===============DatumRegistration========================//
-	pcl::ModelCoefficients::Ptr coeff_data(new pcl::ModelCoefficients);
-	pcl::ModelCoefficients::Ptr coeff_model(new pcl::ModelCoefficients);
-
-	PointCloudPN::Ptr trans_data_with_normals(new PointCloudPN);
-	pcl::transformPointCloudWithNormals(*data_with_normals, *trans_data_with_normals, init_transform);
-
-	computeDatumCoefficients(model_with_normals, datum_model, coeff_model);
-	computeDatumCoefficients(trans_data_with_normals, datum_data, coeff_data);
-
-	qDebug("datum plane of data: %f, %f, %f, %f\n", coeff_data->values[0], coeff_data->values[1], coeff_data->values[2], coeff_data->values[3]);
-	qDebug("datum plane of model: %f, %f, %f, %f\n", coeff_model->values[0], coeff_model->values[1], coeff_model->values[2], coeff_model->values[3]);
-	Eigen::Matrix4d datum_transform;
-	estimateTfBetweenPlanes(coeff_model, coeff_data, datum_transform);
-		
-	pcl::transformPointCloud(*trans_data_with_normals, *trans_data_with_normals, datum_transform.cast<float>());
-	computeDatumCoefficients(trans_data_with_normals, datum_data, coeff_data);
-	Eigen::Matrix4d datum_translation;
-	estimateTfBetweenPlanes(coeff_model, coeff_data, datum_translation);	
-	
 	PointCloudT::Ptr trans_data(new PointCloudT);
 	pcl::transformPointCloud(*original_data, *trans_data, init_transform);
-	pcl::transformPointCloud(*trans_data, *trans_data, datum_transform.cast<float>());
-	pcl::transformPointCloud(*trans_data, *trans_data, datum_translation.cast<float>());
-	pcl::transformPointCloud(*datum_data, *datum_data, datum_transform.cast<float>());
-	pcl::transformPointCloud(*datum_data, *datum_data, datum_translation.cast<float>());
-	//viewer2.reset(new pcl::visualization::PCLVisualizer("preview", true));
-	int v1(1);
-	int v2(2);
-	viewer->createViewPort(0.0, 0.0, 0.5, 1.0, v1);
-	viewer->createViewPort(0.5, 0.0, 1.0, 1.0, v2);
-	viewer->setBackgroundColor(0, 0, 0, v1);
-	viewer->setBackgroundColor(0.1, 0.1, 0.1, v2);
-	viewer->addText("Before Datum Registration", 10, 10, "v1 text", v1);
-	viewer->addText("After Datum Registration", 10, 10, "v2 text", v2);
-
-	PointCloudColorHandlerCustom<PointXYZ> green(original_model, 0, 255, 0);
-	PointCloudColorHandlerCustom<PointXYZ> red(original_data, 255, 0, 0);
-	viewer->addPointCloud(original_model, green, "v1_t", v1);
-	viewer->addPointCloud(original_data, red, "v1_s", v1);
-
-	
-	//PointCloudColorHandlerCustom<PointXYZ> green2(original_model, 0, 255, 0);
-	PointCloudColorHandlerCustom<PointXYZ> red2(trans_data, 255, 0, 0);
-	viewer->addPointCloud(original_model, green, "v2_t", v2);
-	viewer->addPointCloud(trans_data, red2, "v2_s", v2);
-	//viewer->addPointCloud(datum_model, red, "v2_dm", v2);
-	//viewer->addPointCloud(datum_data, green, "v2_dd", v2);
-	viewer->spinOnce();
-	//return true;
 	//===============PassthroughFilter========================//
 	pcl::PassThrough<pcl::PointXYZ> pass;
+	pass.setInputCloud(original_model);
 	pass.setFilterFieldName("z");
 	pass.setFilterLimits(-10, 10);
 	pass.setFilterLimitsNegative(true);
-	pass.setInputCloud(original_model);
 	pass.filter(*surface_model);
 	pass.setInputCloud(trans_data);
 	pass.filter(*surface_data);
 
+	//===============NormalEstimation========================//
+	qDebug("Start Normal Estimating!");
+	computePointNormal(original_model, model_with_normals);
+	computePointNormal(original_data, data_with_normals);
 	computePointNormal(surface_model, surface_model_with_normals);
 	computePointNormal(surface_data, surface_data_with_normals);
 
@@ -1459,13 +1401,19 @@ Visualization::optimalReg()
 	return true;
 	//=================GA Implementation=========================//
 	qDebug("Start GA!");
+<<<<<<< HEAD
 	/*int popsize = 50;
 	double mutationrate = 0.01;
 	double crossoverrate = 0.9;
+=======
+	int popsize = 50;
+	double mutationrate = 0.4;
+	double crossoverrate = 1;
+>>>>>>> parent of 28d97d0... generate GA
 	int generationmax = 10;
-	double maxstep = 0.0001;
-	double leftmax = -10.0f * PI;
-	double rightmax = 10.0f * PI;
+	double maxstep = 0.001;
+	double leftmax = -PI / 18;
+	double rightmax = PI / 18;
 
 	Reset();
 	Init(popsize, mutationrate, crossoverrate, generationmax,
@@ -1498,6 +1446,7 @@ Visualization::optimalReg()
 	while (!ga.done()) ga.step();
 	double omega, fai, kappa;
 	double a, b, c;
+<<<<<<< HEAD
 	//omega = 0.001f * popOperation.fitnessChromo.vecGenome[0];
 	//fai = 0.01f * popOperation.fitnessChromo.vecGenome[1];
 	//kappa = 0.001f * popOperation.fitnessChromo.vecGenome[2];
@@ -1513,6 +1462,14 @@ Visualization::optimalReg()
 	a = bestGenome.gene(3);
 	b = bestGenome.gene(4);
 	c = bestGenome.gene(5);
+=======
+	omega = popOperation.fitnessChromo.vecGenome[0];
+	fai = popOperation.fitnessChromo.vecGenome[1];
+	kappa = popOperation.fitnessChromo.vecGenome[2];
+	a = popOperation.fitnessChromo.vecGenome[3];
+	b = popOperation.fitnessChromo.vecGenome[4];
+	c = popOperation.fitnessChromo.vecGenome[5];
+>>>>>>> parent of 28d97d0... generate GA
 
 	Eigen::AngleAxisd rollAngle(omega, Eigen::Vector3d::UnitZ());
 	Eigen::AngleAxisd yawAngle(fai, Eigen::Vector3d::UnitY());
@@ -1529,23 +1486,23 @@ Visualization::optimalReg()
 	pcl::transformPointCloud(*trans_data, *final_data, transformation);
 	*/
 	//===================Visualization==========================//
-	//int v1(0), v2(0);
+	int v1(0), v2(0);
 	viewer->createViewPort(0.0, 0.0, 0.5, 1.0, v1);
 	viewer->setBackgroundColor(0.0, 0.0, 0.0, v1);
 	viewer->addText("Before Optimal Registration", 10, 10, "v1 text", v1);
-	//PointCloudColorHandlerCustom<PointXYZ> green(original_model, 0, 255, 0);
-	//PointCloudColorHandlerCustom<PointXYZ> red(trans_data, 255, 0, 0);
-	viewer->addPointCloud(original_model, green, "t", v1);
-	viewer->addPointCloud(trans_data, red, "s", v1);
+	PointCloudColorHandlerCustom<PointXYZ> green(original_model, 0, 255, 0);
+	PointCloudColorHandlerCustom<PointXYZ> red(trans_data, 255, 0, 0);
+	viewer->addPointCloud(original_model, green, "v1_target", v1);
+	viewer->addPointCloud(trans_data, red, "v1_sourse", v1);
 
 
 	viewer->createViewPort(0.5, 0.0, 1.0, 1.0, v2);
 	viewer->setBackgroundColor(0.0, 0.0, 0.0, v2);
 	viewer->addText("After Optimal Registration", 10, 10, "v2 text", v2);
-	//PointCloudColorHandlerCustom<PointXYZ> green2(original_model, 0, 255, 0);
-	PointCloudColorHandlerCustom<PointXYZ> red3(final_data, 255, 0, 0);
-	viewer->addPointCloud(original_model, green, "tt", v2);
-	viewer->addPointCloud(final_data, red2, "ss", v2);
+	PointCloudColorHandlerCustom<PointXYZ> green2(original_model, 0, 255, 0);
+	PointCloudColorHandlerCustom<PointXYZ> red2(final_data, 255, 0, 0);
+	viewer->addPointCloud(original_model, green2, "v2_target", v2);
+	viewer->addPointCloud(final_data, red2, "v2_sourse", v2);
 	//viewer->addPointCloud(datum_model, green2, "v2_target", v2);
 	//viewer->addPointCloud(datum_data, red2, "v2_sourse", v2);
 
@@ -1615,6 +1572,7 @@ Visualization::computePointNormal(const PointCloud<PointXYZ>::Ptr cloud, PointCl
 		cloud_with_normals->push_back(points);
 	}
 	return true;
+<<<<<<< HEAD
 }
 
 bool
@@ -1682,3 +1640,6 @@ Visualization::estimateTfBetweenPlanes(const ModelCoefficients::Ptr coeff_model,
 
 	return (float)y;
 }*/
+=======
+}
+>>>>>>> parent of 28d97d0... generate GA
